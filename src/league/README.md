@@ -33,33 +33,31 @@ pending review rather than an automatic rating update.
 `mergeImportedGames` uses the Chess.com game URL as the stable source identity.
 An identical re-import is a no-op. If a previously seen URL comes back with
 different game facts, the existing game is retained and reported as a conflict
-for review. A future database must enforce this identity with a unique
-constraint, so concurrent imports are safe too.
+for review. The database enforces the source URL identity with a unique
+constraint, so concurrent imports can be made safe too.
 
 `applyAdminDecision` makes a repeat of the same decision ID and payload a no-op.
-It returns new state rather than persisting it. In the database, applying the
-decision, updating the game, and rebuilding affected ratings must happen in one
-transaction (one all-or-nothing database operation). Admin identity must come
-from server-verified authentication, never from a browser-supplied ID alone.
+The database RPC in
+`supabase/migrations/20261010180000_admin_review_rating_replay.sql` provides
+the all-or-nothing persisted operation. It checks that the authenticated
+account is a league admin, records the decision and a full replay, and accepts
+a request UUID for retry safety. The organizer confirmed the migration was
+successfully applied to Supabase. No admin login or review interface is wired
+into the website yet.
 
-## Still needed before this can run as the league backend
+## Still needed before this can run as the full league backend
 
-- Apply the initial schema in `supabase/migrations` to the hosted Supabase
-  project. It is not yet applied, and no player records are seeded there.
-- Server-side database integration to persist imports, review decisions, and
-  rating snapshots atomically. Browser access is read-only; the migration sets
-  permissions and constraints, but does not yet add these transaction functions.
-- Admin sign-in and authorization. Public users should be able to read only
-  approved league data; only authorized admins may decide reviews.
-- The daily scheduled importer at 16:00 Europe/London. The scheduler must use
-  the IANA timezone so daylight-saving changes are handled; it should enqueue
-  an idempotent sync and record each run.
+- Admin sign-in, provisioning the first admin account, and a review interface.
+  The RPC checks that a reviewer is an authenticated league admin.
+- Durable import saving and the daily scheduled importer at 16:00
+  Europe/London. The scheduler must use the IANA timezone so daylight-saving
+  changes are handled and retries are safe.
 - A verified Chess.com response contract and result-code mapping before
   enabling automatic imports. See the project README/planning conversation
   for API questions to check against live documentation and sample responses.
 - Person 3's QA of league edge cases and agreement on rules, especially
   correction/reversal policy, draw handling, and rating precision.
 
-The current functions are domain logic, not production security or durable
-storage. Do not put secrets in browser variables, and do not add real players
-until the team is ready to load them.
+The local TypeScript functions are domain logic; the deployed SQL RPC is the
+first durable review/replay path, pending an admin account and interface. Never
+put privileged secrets in browser variables.
