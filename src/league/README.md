@@ -1,11 +1,10 @@
 # League backend rules
 
-This folder is a local, framework-independent starting point for Person 2's
-work. It has no database connection, authentication, or network calls. The
-rating examples in `sample-data.ts` are fictional. `roster.ts` contains the
-three Chess.com usernames supplied for the league; until names are provided,
-the username is also used as a temporary display name. The website page still
-uses its separate fictional placeholders.
+This folder contains Person 2's domain logic and the read-only leaderboard
+connection. The page fetches the public `leaderboard` view from Supabase using
+the publishable key in `.env.local`. The rating examples in `sample-data.ts`
+are fictional. The hosted database contains the organizer-provided roster and
+currently has no games.
 
 ## Current rules in code
 
@@ -45,9 +44,11 @@ from server-verified authentication, never from a browser-supplied ID alone.
 
 ## Still needed before this can run as the league backend
 
-- Supabase tables, unique constraints, row-level security rules, and database
-  functions or server-only code to persist imports, review decisions, and
-  rating snapshots atomically.
+- Apply the initial schema in `supabase/migrations` to the hosted Supabase
+  project. It is not yet applied, and no player records are seeded there.
+- Server-side database integration to persist imports, review decisions, and
+  rating snapshots atomically. Browser access is read-only; the migration sets
+  permissions and constraints, but does not yet add these transaction functions.
 - Admin sign-in and authorization. Public users should be able to read only
   approved league data; only authorized admins may decide reviews.
 - The daily scheduled importer at 16:00 Europe/London. The scheduler must use
