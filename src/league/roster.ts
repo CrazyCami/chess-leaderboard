@@ -1,7 +1,7 @@
 import type { Player } from "./model";
 
 /**
- * Initial league roster from organizer-provided names and Chess.com accounts.
+ * League roster from organizer-provided names and Chess.com accounts.
  */
 export const registeredPlayers: Player[] = [
   {
@@ -48,5 +48,20 @@ export const registeredPlayers: Player[] = [
     id: "chesscom-sigmarizzled23",
     displayName: "Ethan",
     chessComUsername: "SigmaRizzled23",
+  },
+  {
+    id: "chesscom-justdoit0071",
+    displayName: "David",
+    chessComUsername: "JustDoIt0071",
+  },
+  {
+    id: "chesscom-waltizer",
+    displayName: "Walter",
+    chessComUsername: "Waltizer",
+  },
+  {
+    id: "chesscom-alexsander123456789012",
+    displayName: "Alex",
+    chessComUsername: "alexsander123456789012",
   },
 ];
