@@ -1,6 +1,7 @@
 export * from "./elo";
 export * from "./eligibility";
 export * from "./chess-com-result";
+export * from "./demo-data";
 export * from "./import-dedupe";
 export * from "./model";
 export * from "./review";
