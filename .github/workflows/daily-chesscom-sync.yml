@@ -1,0 +1,29 @@
+name: Daily Chess.com league sync
+
+on:
+  schedule:
+    # 16:00 Europe/London is 15:00 UTC in BST and 16:00 UTC in GMT.
+    - cron: "0 15,16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-chesscom-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Import eligible Chess.com games
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/daily-chesscom-sync.mjs

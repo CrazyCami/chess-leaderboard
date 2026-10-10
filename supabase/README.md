@@ -20,6 +20,10 @@ successfully applied to the hosted project.
    already been run. It is safe to re-run for the same player IDs if needed.
 3. The admin review/rating replay migration has also been applied. Do not run
    it again; it adds identity and audit columns and is not repeatable.
+4. The daily import migration,
+   `migrations/20261010190000_chesscom_daily_import.sql`, is new and has not
+   been applied yet. Run it once in Supabase SQL Editor before enabling the
+   GitHub Actions workflow.
 
 Keep database passwords and Supabase secret/service keys out of this
 repository and out of browser code. The roster seed contains only the player
@@ -41,7 +45,6 @@ names and usernames already provided for this league; it does not add games.
 - Each new review decision creates a complete rating replay. Only approved
   standard chess games with a 600-second base and zero increment (`600` or
   `600+0`, with optional surrounding whitespace) count.
-- Browser clients still cannot write league records directly. Import saving
-  and scheduling are not built yet.
-- The Chess.com importer and 16:00 Europe/London scheduled sync are not built.
-- GitHub deployment integration is optional and has not been connected.
+- Browser clients still cannot write league records directly. The daily
+  importer and GitHub Actions workflow are prepared, but the import migration
+  and two GitHub Actions secrets must be configured before the first sync.
