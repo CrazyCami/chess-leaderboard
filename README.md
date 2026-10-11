@@ -63,10 +63,10 @@ games do not affect the leaderboard.
    Retries must reuse the same request ID and payload. Corrections are new
    audited decisions, not edits to old audit records.
 4. If a player disputes a decision, pause further manual changes to that game,
-   gather evidence, and have an admin review it. The website has no sign-in or
-   review screen yet, so **do not treat this as an available in-site process**:
-   use a school-approved, access-controlled channel and a designated admin
-   until the interface and account provisioning are delivered.
+   gather evidence, and have an admin review it through `/review`. This page
+   requires a Supabase Auth account provisioned in `admin_users` and the
+   reason-required database migration to be applied. Until both setup steps are
+   complete, use a school-approved, access-controlled channel instead.
 
 Before opening the leaderboard to students, get school approval for publishing
 names and Chess.com usernames. Never publish contact details, private review
@@ -91,7 +91,7 @@ the owner should update this list with the result and date when it is done.
 | Results | Abandoned/aborted game | Excluded from Elo; no rating event or rating change for either player | Unit test passed locally; CI pending |
 | Results | Unknown, conflicting, or malformed result pair | Pending; cannot approve without correction | Core unknown/conflicting cases passed locally; malformed payload case still needs a test |
 | Eligibility | Variant, time control, date, player, or timestamp outside league rules | Excluded from ratings | Unit tests passed locally; CI pending |
-| Review | Approve, reject, and correct a pending game | Audit decision recorded; only approved eligible games affect standings | Admin UI mock browser test passed; staging SQL integration test not run |
+| Review | Sign in at `/review`, approve, reject, or correct a pending game | Audit decision recorded; only approved eligible games affect standings | Admin UI mock browser test passed; staging SQL integration test not run |
 | Review | Retry same decision ID and payload; then retry with changed payload | First retry is a no-op; changed payload is rejected | Unit test passed locally; database SQL test awaits staging |
 | Replay | Approve a late-played game and replay; repeat an import | Chronological standings are correct; duplicate import adds no game | Unit tests passed locally; CI pending |
 | Privacy | Public view and unauthenticated page | Only school-approved public data; no pending review/admin data | Not run |
@@ -111,7 +111,8 @@ with `npx playwright install chromium`, then run `npx playwright test`.
 
 **Validation status:** locally passed with Node 22: `npm test` (10 tests),
 `npm run lint`, `npm run build`, and `npx playwright test` (9 browser tests).
-The build output includes both `/` and `/admin`. Push the commit and confirm
+The build output includes `/`, `/review`, and the `/admin` compatibility
+redirect. Push the commit and confirm
 the hosted GitHub Actions CI run before treating CI as green. Run
 `supabase/manual_tests/review_rpc_integration.sql` only in a staging database:
 replace its admin UUID placeholder, execute the full script in Supabase SQL
@@ -125,7 +126,7 @@ emulation does not replace a physical-device and accessibility check.
 
 | Priority | Work / issue | Owner | Status / exit condition |
 | --- | --- | --- | --- |
-| P0 | Provision named admin accounts and deploy the admin review workflow | Person 1 + Person 2 | **Implementation added:** `/admin` signs in with Supabase Auth, checks admin membership, and calls the restricted review RPC. Apply the new reason-required migration, provision named accounts, and verify in staging before launch. |
+| P0 | Provision named admin accounts and deploy the admin review workflow | Person 1 + Person 2 | **Implementation added:** `/review` signs in with Supabase Auth, checks admin membership, and calls the restricted review RPC. `/admin` redirects to `/review`. Apply the new reason-required migration, provision named accounts, and verify in staging before launch. |
 | P0 | Run automated domain tests and the staging database integration test | Person 2 + Person 3 | **Partially complete:** test suites and CI are added; CI has not run here and the staging RPC test remains unrun. |
 | P0 | Confirm game rules, result/dispute policy, public display consent, and who can administer the league | Person 3 / organizer | **Needs school decision:** record decisions here before student launch. |
 | P0 | Verify daily imports against a known eligible game and inspect retry/conflict behavior | Person 2 | **Partially verified:** migration and Actions secrets are configured; a manual run succeeded but found 0 eligible games. Verify a scheduled run and a real eligible game before relying on imported results. |

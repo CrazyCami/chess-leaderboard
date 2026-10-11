@@ -14,7 +14,7 @@ export default function Home() {
       <SupabaseLeaderboard />
       <footer>
         Ratings shown here are local league ratings, independent of Chess.com
-        ratings. <Link href="/admin">League admin</Link>
+        ratings. <Link href="/review">Review games</Link>
       </footer>
     </main>
   );

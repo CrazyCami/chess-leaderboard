@@ -123,7 +123,7 @@ test("admin signs in, verifies role, records an approval, and refreshes the queu
     await route.fulfill({ json: [{ decision_id: "decision-uuid", replay_id: "replay-uuid", was_retry: false }] });
   });
 
-  await page.goto("/admin");
+  await page.goto("/review");
   await page.getByLabel("Email").focus();
   await expect(page.getByLabel("Email")).toBeFocused();
   await page.keyboard.press("Tab");
@@ -181,7 +181,13 @@ test("admin rejects signed-in users not provisioned as league admins", async ({ 
   });
   await page.route(`${supabase}/rest/v1/rpc/is_league_admin`, (route) => route.fulfill({ json: false }));
 
-  await page.goto("/admin");
+  await page.goto("/review");
   await expect(page.getByRole("heading", { name: "Admin access required" })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("school-chess-league-admin-session"))).toBeNull();
+});
+
+test("legacy admin URL redirects to the game review page", async ({ page }) => {
+  await page.goto("/admin");
+  await expect(page).toHaveURL(/\/review$/);
+  await expect(page.getByRole("heading", { name: "Game review" })).toBeVisible();
 });

@@ -41,9 +41,10 @@ names and usernames already provided for this league; it does not add games.
   Pending games and admin-only records are restricted.
 - The admin review RPC is installed in the hosted database. It requires an
   authenticated account already listed in `admin_users`. The website now has
-  an `/admin` sign-in and review queue; only the authenticated RPC can change
-  games. Keep the `private` schema out of Supabase's exposed schemas; the
-  callable `public.review_league_game` endpoint is a restricted invoker wrapper.
+  a `/review` sign-in and review queue; `/admin` redirects there. Only the
+  authenticated RPC can change games. Keep the `private` schema out of
+  Supabase's exposed schemas; the callable `public.review_league_game` endpoint
+  is a restricted invoker wrapper.
   Provision each named admin through the school-approved Supabase Auth invite
   process, then add only that account's Auth UUID to `admin_users` using the
   Supabase SQL Editor, for example:
