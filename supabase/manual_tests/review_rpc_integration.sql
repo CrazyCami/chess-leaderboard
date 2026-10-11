@@ -37,6 +37,55 @@ begin
 end;
 $$;
 
+-- Use a fresh pair so pre-existing staging games cannot affect the cap test.
+do $$
+declare
+  v_pair_id text := gen_random_uuid()::text;
+  v_white_id text := 'cap-white-' || v_pair_id;
+  v_black_id text := 'cap-black-' || v_pair_id;
+  v_game_ids uuid[] := array[]::uuid[];
+  v_game_id uuid;
+  v_replay_id uuid;
+  v_event_count integer;
+  v_fourth_game_event_count integer;
+  v_index integer;
+begin
+  insert into public.players (id, display_name)
+  values (v_white_id, 'Pair cap test white'), (v_black_id, 'Pair cap test black');
+
+  for v_index in 0..3 loop
+    v_game_id := gen_random_uuid();
+    v_game_ids := pg_catalog.array_append(v_game_ids, v_game_id);
+    insert into public.games (
+      id, source, white_player_id, black_player_id, result, played_at,
+      time_control, rules, review_status
+    ) values (
+      v_game_id, 'manual',
+      case when v_index % 2 = 0 then v_white_id else v_black_id end,
+      case when v_index % 2 = 0 then v_black_id else v_white_id end,
+      'white_win',
+      timestamptz '2026-10-11 12:00:00+00' + make_interval(hours => v_index),
+      '600', 'chess', 'approved'
+    );
+  end loop;
+
+  v_replay_id := private.rebuild_league_ratings(
+    null, 'Staging pair game cap integration test'
+  );
+  select count(*) into v_event_count
+    from public.rating_events
+   where replay_id = v_replay_id and game_id = any(v_game_ids);
+  select count(*) into v_fourth_game_event_count
+    from public.rating_events
+   where replay_id = v_replay_id and game_id = v_game_ids[4];
+
+  if v_event_count <> 6 or v_fourth_game_event_count <> 0 then
+    raise exception 'Expected three counted games (six events) and no events for the fourth; got % events total and % for game four.',
+      v_event_count, v_fourth_game_event_count;
+  end if;
+end;
+$$;
+
 set local role authenticated;
 
 do $$

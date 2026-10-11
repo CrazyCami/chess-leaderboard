@@ -8,7 +8,8 @@ export type EligibilityReason =
   | "unsupported_variant"
   | "not_10_minute_zero_increment"
   | "unknown_result"
-  | "invalid_date";
+  | "invalid_date"
+  | "pair_game_limit";
 
 export type GameEligibility = { eligible: true } | { eligible: false; reason: EligibilityReason };
 
