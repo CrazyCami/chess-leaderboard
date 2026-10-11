@@ -104,11 +104,9 @@ rating replay, admin decisions, and duplicate imports. CI now runs those tests,
 lint, a production build, and Playwright viewport smoke tests at 320px, 390px,
 and 1280px on pushes and pull requests. Browser tests cover leaderboard data,
 empty/error states, admin sign-in/authorization, decision submission, and
-responsive layout. The Playwright runner is installed in CI; to run those
-browser checks locally, install Node 22 dependencies and build, then run
-`npm install --no-save --package-lock=false
-@playwright/test@1.55.0`, `npx playwright install chromium`, and
-`npx playwright test`.
+responsive layout. Playwright is a locked development dependency. To run the
+browser checks locally, install Node 22, run `npm ci`, build, install Chromium
+with `npx playwright install chromium`, then run `npx playwright test`.
 
 **Validation status:** locally passed with Node 22: `npm test` (10 tests),
 `npm run lint`, `npm run build`, and `npx playwright test` (9 browser tests).
