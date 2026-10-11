@@ -143,6 +143,28 @@ test("archive imports auto-approve checkmate but hold uncertain results for revi
   assert.equal(normalizeChessComArchiveGame({ ...base, end_time: cutoff - 1 }, roster, cutoff), null);
 });
 
+test("an aborted game is excluded and changes neither player's Elo", () => {
+  const aborted = normalizeChessComArchiveGame({
+    url: "https://www.chess.com/game/live/aborted",
+    rules: "chess",
+    time_control: "600",
+    end_time: 1_792_000_000,
+    white: { username: "Alice", result: "aborted" },
+    black: { username: "Bob", result: "win" },
+  }, [
+    { id: "alice", chesscom_username: "alice" },
+    { id: "bob", chesscom_username: "bob" },
+  ], 1_700_000_000);
+
+  assert.equal(aborted, null);
+  const replay = replayRatings(players, []);
+  assert.equal(replay.history.length, 0);
+  assert.deepEqual(
+    replay.standings.map(({ playerId, rating }) => [playerId, rating]),
+    [["alice", 1000], ["bob", 1000]],
+  );
+});
+
 test("rating replay counts approved eligible wins, losses, and draws chronologically", () => {
   const games = [
     game({ id: "later", result: "draw", playedAt: "2026-10-10T13:00:00.000Z" }),

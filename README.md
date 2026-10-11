@@ -36,9 +36,10 @@ counted game; changing a rule later can change standings.
   rating. Chess.com ratings do not affect league ratings. Games are replayed
   chronologically, with game ID as the stable tie-breaker; late approvals can
   therefore change later results.
-- **Outcomes:** a win scores 1, a draw 0.5, and a loss 0. The winning player's
-  score is paired with the opponent's complementary score. A game is not
-  counted until approved.
+- **Outcomes:** Elo uses 1 for a win, 0.5 for a draw, and 0 for a loss. The
+  opponent receives the complementary score. An abandoned/aborted game is
+  excluded entirely: it is not a zero-score loss, creates no rating event, and
+  changes neither player's rating. A game is not counted until approved.
 - **League scope:** there is no separate season reset or inactivity penalty in
   the current implementation. Do not promise either until the school has
   agreed a policy and it has been implemented.
@@ -87,7 +88,7 @@ the owner should update this list with the result and date when it is done.
 | Results | Recognized checkmate win/loss pair | Correct winner; eligible for auto-approval | Unit test passed locally; CI pending |
 | Results | Agreed draw, stalemate, repetition, insufficient material, 50-move draw | Draw; pending admin review | Unit tests passed locally; CI pending |
 | Results | Resignation or timeout with a winner | Correct winner; pending admin review | Unit tests passed locally; CI pending |
-| Results | Abandoned/aborted game | Ignored; no rating change | Unit test passed locally; CI pending |
+| Results | Abandoned/aborted game | Excluded from Elo; no rating event or rating change for either player | Unit test passed locally; CI pending |
 | Results | Unknown, conflicting, or malformed result pair | Pending; cannot approve without correction | Core unknown/conflicting cases passed locally; malformed payload case still needs a test |
 | Eligibility | Variant, time control, date, player, or timestamp outside league rules | Excluded from ratings | Unit tests passed locally; CI pending |
 | Review | Approve, reject, and correct a pending game | Audit decision recorded; only approved eligible games affect standings | Admin UI mock browser test passed; staging SQL integration test not run |
