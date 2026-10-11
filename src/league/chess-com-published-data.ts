@@ -2,8 +2,8 @@ import {
   isAbortedChessComResult,
   needsChessComHumanReview,
   parseChessComResult,
-  type GameResult,
 } from "./chess-com-result";
+import type { GameResult } from "./elo";
 import { isLeagueTimeControl } from "./eligibility";
 
 export interface ImportRosterPlayer {

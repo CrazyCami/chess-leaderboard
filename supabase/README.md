@@ -24,6 +24,10 @@ successfully applied to the hosted project.
    `migrations/20261010190000_chesscom_daily_import.sql`, is applied to the
    hosted project. Do not run it again there. For a new project, apply it once
    after the schema and admin review migrations and before enabling imports.
+5. The admin review UI now requires a reason for each decision. Apply
+   `migrations/20261011151100_require_admin_decision_reason.sql` once in
+   Supabase SQL Editor. It preserves older audit rows but rejects new decisions
+   without a nonblank reason.
 
 Keep database passwords and Supabase secret/service keys out of this
 repository and out of browser code. The roster seed contains only the player
@@ -36,10 +40,22 @@ names and usernames already provided for this league; it does not add games.
   settings, approved games, approved rating events, and leaderboard view.
   Pending games and admin-only records are restricted.
 - The admin review RPC is installed in the hosted database. It requires an
-  authenticated account already listed in
-  `admin_users`; admin account setup and a review interface are not built yet.
-  Keep the `private` schema out of Supabase's exposed schemas; the callable
-  `public.review_league_game` endpoint is a restricted invoker wrapper.
+  authenticated account already listed in `admin_users`. The website now has
+  an `/admin` sign-in and review queue; only the authenticated RPC can change
+  games. Keep the `private` schema out of Supabase's exposed schemas; the
+  callable `public.review_league_game` endpoint is a restricted invoker wrapper.
+  Provision each named admin through the school-approved Supabase Auth invite
+  process, then add only that account's Auth UUID to `admin_users` using the
+  Supabase SQL Editor, for example:
+
+  ```sql
+  insert into public.admin_users (user_id)
+  select id from auth.users where lower(email) = lower('REPLACE_WITH_ADMIN_EMAIL')
+  on conflict (user_id) do nothing;
+  ```
+
+  Confirm that exactly one row was inserted or already existed. Never expose
+  an admin/service key to browser code.
 - The review RPC accepts a UUID `request_id`. Reuse that same ID when retrying
   the same decision, and create a new ID for a new decision.
 - Each new review decision creates a complete rating replay. Only approved
@@ -51,3 +67,8 @@ names and usernames already provided for this league; it does not add games.
   roster accounts, and imported 0 games. This verifies that run reached the
   database RPC; it does not verify a scheduled run or prove that game data has
   been imported.
+- `manual_tests/review_rpc_integration.sql` is a staging-only transaction test.
+  Replace the admin UUID placeholder and run the entire script in Supabase SQL
+  Editor after applying the migrations. It rolls back its temporary game and
+  checks the RPC permission, correction, audit, rating replay, and retry paths.
+  It has not yet been run against the hosted project.

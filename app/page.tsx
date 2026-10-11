@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SupabaseLeaderboard } from "@/league/SupabaseLeaderboard";
 
 export default function Home() {
@@ -13,7 +14,7 @@ export default function Home() {
       <SupabaseLeaderboard />
       <footer>
         Ratings shown here are local league ratings, independent of Chess.com
-        ratings.
+        ratings. <Link href="/admin">League admin</Link>
       </footer>
     </main>
   );

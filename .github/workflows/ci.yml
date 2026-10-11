@@ -12,6 +12,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://supabase.test
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-publishable-test-key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
