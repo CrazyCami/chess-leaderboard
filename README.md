@@ -97,6 +97,7 @@ the owner should update this list with the result and date when it is done.
 | Privacy | Public view and unauthenticated page | Only school-approved public data; no pending review/admin data | Not run |
 | Mobile | 320px and 390px viewport, portrait | No page-level horizontal overflow | Playwright passed locally; physical devices still need checking |
 | Desktop | 1280px viewport | Main headings visible; no page-level horizontal overflow | Playwright passed locally; physical computer still needs checking |
+| Mobile browser engines | iPhone 13 Safari/WebKit and Pixel 7 Chrome/Chromium emulation | Leaderboard scrolls within its table; review sign-in/actions work with touch | 4 Playwright tests passed locally |
 | Devices/accessibility | Physical phone/computer, keyboard and screen reader smoke test | Content, table interaction, and assistive access are usable | Manual checks still required |
 
 **Automated checks added:** `npm test` compiles the domain TypeScript and runs
@@ -105,12 +106,16 @@ rating replay, admin decisions, and duplicate imports. CI now runs those tests,
 lint, a production build, and Playwright viewport smoke tests at 320px, 390px,
 and 1280px on pushes and pull requests. Browser tests cover leaderboard data,
 empty/error states, admin sign-in/authorization, decision submission, and
-responsive layout. Playwright is a locked development dependency. To run the
-browser checks locally, install Node 22, run `npm ci`, build, install Chromium
-with `npx playwright install chromium`, then run `npx playwright test`.
+responsive layout. Dedicated phone tests emulate iPhone Safari (WebKit) and
+Android Chrome (Chromium), including touch input on the review workflow. CI
+installs both Chromium and WebKit.
+Playwright is a locked development dependency. To run the browser checks
+locally, install Node 22, run `npm ci`, build, install browsers with
+`npx playwright install chromium webkit`, then run `npx playwright test`.
 
-**Validation status:** locally passed with Node 22: `npm test` (10 tests),
-`npm run lint`, `npm run build`, and `npx playwright test` (9 browser tests).
+**Validation status:** locally passed with Node 22: `npm test` (11 tests),
+`npm run lint`, `npm run build`, and `npx playwright test` (14 browser tests,
+including iPhone Safari/WebKit and Android Chrome/Chromium emulation).
 The build output includes `/`, `/review`, and the `/admin` compatibility
 redirect. Push the commit and confirm
 the hosted GitHub Actions CI run before treating CI as green. Run
