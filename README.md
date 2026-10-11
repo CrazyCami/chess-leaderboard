@@ -20,6 +20,109 @@ The public page reads standings from Supabase. Admin sign-in and the review inte
 
 Use fictional data while developing features. Public student names/usernames should only be loaded after the league agrees to publish them. Privileged credentials must stay server-side and must never use a `NEXT_PUBLIC_` environment variable.
 
+## League operating rules
+
+These are the rules currently enforced by the database and rating code. The
+organizer should confirm them with the school and players before the first
+counted game; changing a rule later can change standings.
+
+- **Eligible games:** registered players only; standard chess; 10 minutes with
+  zero increment (`600` or `600+0`); played on or after midnight
+  Europe/London on 10 October 2026. Games must have two different players, a
+  recognized result, and a valid played-at time.
+- **Ratings:** every player starts at 1000. Use standard Elo
+  (`standard-elo-v1`) with K-factor 32. Ratings are unrounded in storage and
+  replay, and displayed to the nearest whole point. Rankings use the unrounded
+  rating. Chess.com ratings do not affect league ratings. Games are replayed
+  chronologically, with game ID as the stable tie-breaker; late approvals can
+  therefore change later results.
+- **Outcomes:** a win scores 1, a draw 0.5, and a loss 0. The winning player's
+  score is paired with the opponent's complementary score. A game is not
+  counted until approved.
+- **League scope:** there is no separate season reset or inactivity penalty in
+  the current implementation. Do not promise either until the school has
+  agreed a policy and it has been implemented.
+
+### Questionable-game approval
+
+The import automatically approves only a recognized decisive checkmate.
+Draws, resignations, timeouts, generic losses, uncertain or unknown result
+codes are pending. Abandoned/aborted games are ignored. Pending and rejected
+games do not affect the leaderboard.
+
+1. A designated league admin checks the source game, both players, date, time
+   control, variant, and result. Ask both players or a supervising staff member
+   when the source record alone does not resolve a disagreement.
+2. The admin records one decision: **approve** a clear result, **reject** an
+   ineligible or unverifiable game, or **correct result** to the verified
+   outcome. Record a concise reason, especially for rejection or correction.
+   Unknown results cannot be approved as-is.
+3. Decisions are written through the authenticated admin-only database RPC.
+   Each action is audited and causes a full chronological rating replay.
+   Retries must reuse the same request ID and payload. Corrections are new
+   audited decisions, not edits to old audit records.
+4. If a player disputes a decision, pause further manual changes to that game,
+   gather evidence, and have an admin review it. The website has no sign-in or
+   review screen yet, so **do not treat this as an available in-site process**:
+   use a school-approved, access-controlled channel and a designated admin
+   until the interface and account provisioning are delivered.
+
+Before opening the leaderboard to students, get school approval for publishing
+names and Chess.com usernames. Never publish contact details, private review
+notes, or admin data.
+
+## Readiness, QA, and next work
+
+This is a readiness tracker, not a claim that the live school workflow has
+passed these checks. A task marked **blocked** needs its stated prerequisite;
+the owner should update this list with the result and date when it is done.
+
+### Acceptance checks
+
+| Area | Check | Expected result | Status |
+| --- | --- | --- | --- |
+| Ratings | White wins from equal 1000 ratings, K=32 | White 1016, Black 984 | Not run |
+| Ratings | Black wins from equal 1000 ratings, K=32 | White 984, Black 1016 | Not run |
+| Ratings | Draw from equal 1000 ratings, K=32 | Both remain 1000 | Not run |
+| Results | Recognized checkmate win/loss pair | Correct winner; eligible for auto-approval | Not run |
+| Results | Agreed draw, stalemate, repetition, insufficient material, 50-move draw | Draw; pending admin review | Not run |
+| Results | Resignation or timeout with a winner | Correct winner; pending admin review | Not run |
+| Results | Abandoned/aborted game | Ignored; no rating change | Not run |
+| Results | Unknown, conflicting, or malformed result pair | Pending; cannot approve without correction | Not run |
+| Eligibility | Variant, time control, date, player, or timestamp outside league rules | Excluded from ratings | Not run |
+| Review | Approve, reject, and correct a pending game | Audit decision recorded; only approved eligible games affect standings | Not run |
+| Review | Retry same decision ID and payload; then retry with changed payload | First retry is a no-op; changed payload is rejected | Not run |
+| Replay | Approve a late-played game and replay; repeat an import | Chronological standings are correct; duplicate import adds no game | Not run |
+| Privacy | Public view and unauthenticated page | Only school-approved public data; no pending review/admin data | Not run |
+| Mobile | 320px and 390px viewport, portrait | No page-level horizontal overflow; leaderboard remains readable/scrollable | Not run |
+| Desktop | 1280px viewport, keyboard and screen reader smoke test | Table headings, loading/error/empty states, and navigation are usable | Not run |
+
+**Current validation:** no automated tests are present in the repository.
+`node`/`npm` are not installed in the current development environment, so
+build, lint, browser, and device checks have not been run. Run `npm run lint`
+and `npm run build` after installing the documented Node version; execute the
+rating/result cases in a test runner before relying on imported games. The
+responsive CSS is not a substitute for testing on real phones and computers.
+
+### Prioritized backlog and owners
+
+| Priority | Work / issue | Owner | Status / exit condition |
+| --- | --- | --- | --- |
+| P0 | Provision named admin accounts and deliver sign-in, pending-game queue, evidence/reason fields, approve/reject/correct actions, and decision feedback | Person 1 + Person 2 | **Blocked:** database RPC exists, but no login or review UI. Admin can review a questionable game without exposing privileged credentials. |
+| P0 | Run automated domain and database tests for the acceptance cases above | Person 2 + Person 3 | **Blocked:** no test runner or cases in repo. Test rating arithmetic, unusual results, eligibility, retries, and chronological correction/replay. |
+| P0 | Confirm game rules, result/dispute policy, public display consent, and who can administer the league | Person 3 / organizer | **Needs school decision:** record decisions here before student launch. |
+| P0 | Verify daily imports against a known eligible game and inspect retry/conflict behavior | Person 2 | **Partially verified:** migration and Actions secrets are configured; a manual run succeeded but found 0 eligible games. Verify a scheduled run and a real eligible game before relying on imported results. |
+| P1 | Test responsive layout, accessibility, loading/error/empty states on phones and computers | Person 1 + Person 3 | **Not run:** record device/browser, viewport, result, and bug before launch. |
+| P1 | Add an in-repository issue list with severity, reproduction steps, owner, and resolution as bugs are found | Person 3 | **Open:** use the project issue tracker if available; do not mark launch blockers resolved without verification. |
+| P2 | Add manual game entry, season/archive support, or additional formats | Organizer + team | **Not scoped:** decide only after P0 launch blockers and school rules are settled. |
+
+**Progress check:** Person 3 coordinates one short check-in per work session:
+review P0 blockers first, assign one owner and next action per open item, record
+verification evidence, and update this table. The scheduled sync is configured;
+keep checking its run logs, but do not rely on game imports until a known
+eligible game has been observed in the database. Do not announce the website as
+ready while any P0 item remains blocked.
+
 ## Daily Chess.com import setup (Person 2)
 
 The daily workflow is in `.github/workflows/daily-chesscom-sync.yml` and its
@@ -29,7 +132,17 @@ chess with exactly 600 seconds and zero increment, and considers game end
 times from 10 October 2026 00:00 Europe/London onward. Chess.com ratings are
 never read or used.
 
-Before enabling the workflow:
+The workflow and external setup have been verified by a manual GitHub Actions
+run on 10 October 2026 (`Daily Chess.com league sync`, run
+`38076710939`). It completed successfully, checked 9 roster accounts, and
+submitted 0 eligible games; the database reported 0 inserted, 0 pending, and
+0 conflicts. This confirms the configured Actions credentials and import RPC
+worked for that run, but does **not** confirm that any games have been
+imported, that the scheduled run has succeeded, or that future syncs will
+succeed.
+
+For a new Supabase project, apply the migration and configure Actions before
+using the workflow:
 
 1. Run `supabase/migrations/20261010190000_chesscom_daily_import.sql` once in
    Supabase SQL Editor. This exposes a narrow RPC to the backend role, stores
@@ -55,6 +168,12 @@ source results are skipped; clear checkmate outcomes are approved automatically;
 draws, resignations, timeouts/possible timeouts, generic losses, and unrecognized
 result codes wait in the review queue. Only approved games affect ratings.
 
-The migration and GitHub secrets are not yet configured by this repository
-change, so no live Chess.com records are fetched until you complete these
-steps and run the workflow.
+For this project, the daily import migration and GitHub Actions secrets are
+already configured, and the first manual sync completed as described above.
+Use **Actions → Daily Chess.com league sync → Run workflow** to retry or
+backfill. Check each run's log for `eligibleRecordsSeen`, `uniqueGamesSubmitted`,
+and the database `inserted`, `pending`, and `conflicts` counts. Investigate a
+failed run or any conflict before relying on its data. A zero-game successful
+run means only that no eligible games were submitted by that run; it is not
+evidence that the full school league workflow or admin review interface is
+ready.
