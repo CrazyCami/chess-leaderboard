@@ -81,38 +81,47 @@ the owner should update this list with the result and date when it is done.
 
 | Area | Check | Expected result | Status |
 | --- | --- | --- | --- |
-| Ratings | White wins from equal 1000 ratings, K=32 | White 1016, Black 984 | Not run |
-| Ratings | Black wins from equal 1000 ratings, K=32 | White 984, Black 1016 | Not run |
-| Ratings | Draw from equal 1000 ratings, K=32 | Both remain 1000 | Not run |
-| Results | Recognized checkmate win/loss pair | Correct winner; eligible for auto-approval | Not run |
-| Results | Agreed draw, stalemate, repetition, insufficient material, 50-move draw | Draw; pending admin review | Not run |
-| Results | Resignation or timeout with a winner | Correct winner; pending admin review | Not run |
-| Results | Abandoned/aborted game | Ignored; no rating change | Not run |
-| Results | Unknown, conflicting, or malformed result pair | Pending; cannot approve without correction | Not run |
-| Eligibility | Variant, time control, date, player, or timestamp outside league rules | Excluded from ratings | Not run |
-| Review | Approve, reject, and correct a pending game | Audit decision recorded; only approved eligible games affect standings | Not run |
-| Review | Retry same decision ID and payload; then retry with changed payload | First retry is a no-op; changed payload is rejected | Not run |
-| Replay | Approve a late-played game and replay; repeat an import | Chronological standings are correct; duplicate import adds no game | Not run |
+| Ratings | White wins from equal 1000 ratings, K=32 | White 1016, Black 984 | Unit test added; CI pending |
+| Ratings | Black wins from equal 1000 ratings, K=32 | White 984, Black 1016 | Unit test added; CI pending |
+| Ratings | Draw from equal 1000 ratings, K=32 | Both remain 1000 | Unit test added; CI pending |
+| Results | Recognized checkmate win/loss pair | Correct winner; eligible for auto-approval | Unit test added; CI pending |
+| Results | Agreed draw, stalemate, repetition, insufficient material, 50-move draw | Draw; pending admin review | Unit tests added; CI pending |
+| Results | Resignation or timeout with a winner | Correct winner; pending admin review | Unit tests added; CI pending |
+| Results | Abandoned/aborted game | Ignored; no rating change | Unit test added; CI pending |
+| Results | Unknown, conflicting, or malformed result pair | Pending; cannot approve without correction | Partially covered; CI pending |
+| Eligibility | Variant, time control, date, player, or timestamp outside league rules | Excluded from ratings | Unit tests added; CI pending |
+| Review | Approve, reject, and correct a pending game | Audit decision recorded; only approved eligible games affect standings | Decision logic unit tests added; database integration not covered |
+| Review | Retry same decision ID and payload; then retry with changed payload | First retry is a no-op; changed payload is rejected | Unit test added; CI pending |
+| Replay | Approve a late-played game and replay; repeat an import | Chronological standings are correct; duplicate import adds no game | Replay and duplicate-import unit tests added; CI pending |
 | Privacy | Public view and unauthenticated page | Only school-approved public data; no pending review/admin data | Not run |
-| Mobile | 320px and 390px viewport, portrait | No page-level horizontal overflow; leaderboard remains readable/scrollable | Not run |
-| Desktop | 1280px viewport, keyboard and screen reader smoke test | Table headings, loading/error/empty states, and navigation are usable | Not run |
+| Mobile | 320px and 390px viewport, portrait | No page-level horizontal overflow | Playwright viewport tests added; CI pending |
+| Desktop | 1280px viewport | Main headings visible; no page-level horizontal overflow | Playwright viewport test added; CI pending |
+| Devices/accessibility | Physical phone/computer, keyboard and screen reader smoke test | Content, table interaction, and assistive access are usable | Manual checks still required |
 
-**Current validation:** no automated tests are present in the repository.
-`node`/`npm` are not installed in the current development environment, so
-build, lint, browser, and device checks have not been run. Run `npm run lint`
-and `npm run build` after installing the documented Node version; execute the
-rating/result cases in a test runner before relying on imported games. The
-responsive CSS is not a substitute for testing on real phones and computers.
+**Automated checks added:** `npm test` compiles the domain TypeScript and runs
+focused Node tests for Elo outcomes, result parsing/import review, eligibility,
+rating replay, admin decisions, and duplicate imports. CI now runs those tests,
+lint, a production build, and Playwright viewport smoke tests at 320px, 390px,
+and 1280px on pushes and pull requests. The Playwright runner is installed in
+CI; to run those browser checks locally, install Node 22 dependencies and build,
+then run `npm install --no-save --package-lock=false
+@playwright/test@1.55.0`, `npx playwright install chromium`, and
+`npx playwright test`.
+
+**Validation status:** these checks are newly added, not yet executed in this
+environment because Node/npm are unavailable here. CI must pass before treating
+automated checks as green. Viewport emulation does not replace a physical-device
+and accessibility check.
 
 ### Prioritized backlog and owners
 
 | Priority | Work / issue | Owner | Status / exit condition |
 | --- | --- | --- | --- |
 | P0 | Provision named admin accounts and deliver sign-in, pending-game queue, evidence/reason fields, approve/reject/correct actions, and decision feedback | Person 1 + Person 2 | **Blocked:** database RPC exists, but no login or review UI. Admin can review a questionable game without exposing privileged credentials. |
-| P0 | Run automated domain and database tests for the acceptance cases above | Person 2 + Person 3 | **Blocked:** no test runner or cases in repo. Test rating arithmetic, unusual results, eligibility, retries, and chronological correction/replay. |
+| P0 | Run automated domain tests and add database integration coverage for the acceptance cases above | Person 2 + Person 3 | **Partially complete:** focused domain tests and CI are added; CI has not run here, and persisted review/RPC behavior still needs database integration tests. |
 | P0 | Confirm game rules, result/dispute policy, public display consent, and who can administer the league | Person 3 / organizer | **Needs school decision:** record decisions here before student launch. |
 | P0 | Verify daily imports against a known eligible game and inspect retry/conflict behavior | Person 2 | **Partially verified:** migration and Actions secrets are configured; a manual run succeeded but found 0 eligible games. Verify a scheduled run and a real eligible game before relying on imported results. |
-| P1 | Test responsive layout, accessibility, loading/error/empty states on phones and computers | Person 1 + Person 3 | **Not run:** record device/browser, viewport, result, and bug before launch. |
+| P1 | Verify responsive layout and accessibility on real phones/computers; exercise loading/error/empty states | Person 1 + Person 3 | **Partially complete:** automated viewport smoke tests are added; CI and physical-device/accessibility checks remain outstanding. |
 | P1 | Add an in-repository issue list with severity, reproduction steps, owner, and resolution as bugs are found | Person 3 | **Open:** use the project issue tracker if available; do not mark launch blockers resolved without verification. |
 | P2 | Add manual game entry, season/archive support, or additional formats | Organizer + team | **Not scoped:** decide only after P0 launch blockers and school rules are settled. |
 
