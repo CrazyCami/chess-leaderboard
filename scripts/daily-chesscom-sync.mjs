@@ -1,3 +1,5 @@
+import { normalizeGame } from "./chesscom-import-normalization.mjs";
+
 const londonDate = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/London",
   year: "numeric",
@@ -12,7 +14,6 @@ if (!supabaseUrl || !secretKey) {
 }
 
 const API_ROOT = "https://api.chess.com/pub";
-const CUTOFF = Date.parse("2026-10-09T23:00:00.000Z") / 1000;
 const headers = {
   "User-Agent": "SchoolChessLeague/1.0 (scheduled sync; contact league administrator)",
 };
@@ -35,61 +36,6 @@ async function getJson(url) {
     throw new Error(`Chess.com returned HTTP ${response.status} for ${url}`);
   }
   throw new Error(`Chess.com remained unavailable after retries: ${url}`);
-}
-
-function timeControlIsTenZero(value) {
-  const match = /^\s*(\d+)(?:\+(\d+))?\s*$/.exec(value);
-  return match !== null && Number(match[1]) === 600 && Number(match[2] ?? 0) === 0;
-}
-
-const drawCodes = new Set([
-  "agreed", "repetition", "stalemate", "insufficient", "50move", "timevsinsufficient",
-]);
-const losingCodes = new Set(["checkmated", "resigned", "timeout", "lose"]);
-const manualReviewCodes = new Set([
-  ...drawCodes, "timeout", "lose", "timevsinsufficient",
-]);
-
-function normalizeGame(game, userToPlayer) {
-  if (!game || typeof game !== "object") return null;
-  const whiteName = typeof game.white?.username === "string" ? game.white.username : "";
-  const blackName = typeof game.black?.username === "string" ? game.black.username : "";
-  const whiteId = userToPlayer.get(whiteName.toLocaleLowerCase("en-US"));
-  const blackId = userToPlayer.get(blackName.toLocaleLowerCase("en-US"));
-  if (!whiteId || !blackId || whiteId === blackId) return null;
-  if (game.rules !== "chess" || typeof game.time_control !== "string" || !timeControlIsTenZero(game.time_control)) return null;
-  if (!Number.isSafeInteger(game.end_time) || game.end_time < CUTOFF) return null;
-
-  const url = typeof game.url === "string" ? game.url : "";
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:" || !["chess.com", "www.chess.com"].includes(parsed.hostname.toLowerCase())) return null;
-  } catch {
-    return null;
-  }
-
-  const whiteResult = typeof game.white?.result === "string" ? game.white.result.trim().toLowerCase() : "";
-  const blackResult = typeof game.black?.result === "string" ? game.black.result.trim().toLowerCase() : "";
-  if ([whiteResult, blackResult].some((result) => result === "abandoned" || result === "aborted")) return null;
-
-  let result = null;
-  if (whiteResult === "win" && losingCodes.has(blackResult)) result = "white_win";
-  else if (blackResult === "win" && losingCodes.has(whiteResult)) result = "black_win";
-  else if (drawCodes.has(whiteResult) && drawCodes.has(blackResult)) result = "draw";
-
-  const needsReview = result === null || [whiteResult, blackResult].some((code) => manualReviewCodes.has(code));
-  return {
-    source_game_url: url,
-    white_player_id: whiteId,
-    black_player_id: blackId,
-    result,
-    white_source_result: whiteResult,
-    black_source_result: blackResult,
-    played_at: new Date(game.end_time * 1000).toISOString(),
-    time_control: game.time_control,
-    rules: "chess",
-    review_status: needsReview ? "pending" : "approved",
-  };
 }
 
 async function supabase(path, options = {}) {
@@ -120,6 +66,9 @@ const monthFloor = Date.UTC(2026, 9, 1);
 const currentMonthFloor = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
 const gamesByUrl = new Map();
 let gamesSeen = 0;
+let archivedGamesRead = 0;
+const skippedGames = {};
+const pendingReviewGames = {};
 
 // Fetch every monthly archive from the configured start month. The rolling
 // backfill also catches Chess.com archive/cache updates that arrived late.
@@ -133,9 +82,18 @@ for (const player of players) {
     if (archiveMonth < monthFloor || archiveMonth > currentMonthFloor) continue;
     const archive = await getJson(archiveUrl);
     for (const rawGame of Array.isArray(archive.games) ? archive.games : []) {
-      const candidate = normalizeGame(rawGame, userToPlayer);
-      if (!candidate) continue;
+      archivedGamesRead += 1;
+      const normalized = normalizeGame(rawGame, userToPlayer);
+      if (!normalized.candidate) {
+        skippedGames[normalized.skippedReason] = (skippedGames[normalized.skippedReason] ?? 0) + 1;
+        continue;
+      }
+      const candidate = normalized.candidate;
       gamesSeen += 1;
+      if (normalized.reviewReason) {
+        pendingReviewGames[normalized.reviewReason] =
+          (pendingReviewGames[normalized.reviewReason] ?? 0) + 1;
+      }
       const previous = gamesByUrl.get(candidate.source_game_url);
       if (previous && JSON.stringify(previous) !== JSON.stringify(candidate)) {
         throw new Error(`Chess.com returned conflicting facts for ${candidate.source_game_url}; import stopped for review.`);
@@ -157,7 +115,11 @@ const result = await supabase("rpc/import_chesscom_games", {
 console.log(JSON.stringify({
   syncDate: londonDate,
   playersChecked: players.length,
+  activeRosterPlayersWithoutChessComUsername: roster.length - players.length,
+  archivedGamesRead,
   eligibleRecordsSeen: gamesSeen,
   uniqueGamesSubmitted: gamesByUrl.size,
+  skippedGames,
+  pendingReviewGames,
   database: result,
 }));

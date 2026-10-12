@@ -19,6 +19,35 @@ test("leaderboard shows live-style standings and leaves inactive rank blank", as
   await expect(rows.nth(2).getByRole("cell").first()).toHaveText("—");
 });
 
+test("leaderboard refreshes every five minutes", async ({ page }) => {
+  let requestCount = 0;
+  await page.clock.install({ time: new Date("2026-10-12T12:00:00.000Z") });
+  await page.route(`${supabase}/rest/v1/leaderboard**`, async (route) => {
+    requestCount += 1;
+    await route.fulfill({
+      json: [
+        {
+          player_id: "p1",
+          display_name: "Ari Example",
+          chesscom_username: "ari",
+          rating: requestCount === 1 ? 1016.25 : 1032,
+          wins: requestCount,
+          draws: 0,
+          losses: 0,
+          games_played: requestCount,
+        },
+      ],
+    });
+  });
+
+  await page.goto("/");
+  const row = page.getByRole("table").getByRole("row").nth(1);
+  await expect(row).toContainText("1016");
+  await page.clock.fastForward(5 * 60 * 1000);
+  await expect(row).toContainText("1032");
+  expect(requestCount).toBe(2);
+});
+
 test("leaderboard reports database errors accessibly", async ({ page }) => {
   await page.route(`${supabase}/rest/v1/leaderboard**`, (route) => route.fulfill({
     status: 503,
@@ -28,6 +57,45 @@ test("leaderboard reports database errors accessibly", async ({ page }) => {
 
   await page.goto("/");
   await expect(page.locator(".leaderboard [role='alert']")).toContainText("Supabase returned HTTP 503");
+});
+
+test("leaderboard keeps the last standings visible when a refresh fails", async ({ page }) => {
+  let requestCount = 0;
+  await page.clock.install({ time: new Date("2026-10-12T12:00:00.000Z") });
+  await page.route(`${supabase}/rest/v1/leaderboard**`, async (route) => {
+    requestCount += 1;
+    if (requestCount === 2) {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "Database temporarily unavailable" }),
+      });
+      return;
+    }
+    await route.fulfill({
+      json: [{
+        player_id: "p1",
+        display_name: "Ari Example",
+        chesscom_username: "ari",
+        rating: requestCount === 1 ? 1016.25 : 1032,
+        wins: requestCount,
+        draws: 0,
+        losses: 0,
+        games_played: requestCount,
+      }],
+    });
+  });
+
+  await page.goto("/");
+  const row = page.getByRole("table").getByRole("row").nth(1);
+  await expect(row).toContainText("1016");
+  await page.clock.fastForward(5 * 60 * 1000);
+  await expect(page.locator(".leaderboard p[role='alert']")).toContainText("HTTP 503");
+  await expect(row).toContainText("1016");
+
+  await page.clock.fastForward(5 * 60 * 1000);
+  await expect(row).toContainText("1032");
+  await expect(page.locator(".leaderboard p[role='alert']")).toHaveCount(0);
 });
 
 test("leaderboard reports an empty roster", async ({ page }) => {
@@ -44,7 +112,7 @@ test("leaderboard announces its loading state to assistive technology", async ({
   });
 
   await page.goto("/");
-  await expect(page.getByRole("status")).toContainText("Loading leaderboard");
+  await expect(page.getByText("Loading leaderboard…")).toBeVisible();
   await expect(page.getByText("No active players found.")).toBeVisible();
 });
 

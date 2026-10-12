@@ -12,6 +12,7 @@ import { assessGameEligibility } from "../node_modules/.cache/league-test-build/
 import { mergeImportedGames } from "../node_modules/.cache/league-test-build/import-dedupe.js";
 import { applyAdminDecision } from "../node_modules/.cache/league-test-build/review.js";
 import { replayRatings } from "../node_modules/.cache/league-test-build/standings.js";
+import { normalizeGame as normalizeSyncGame } from "../scripts/chesscom-import-normalization.mjs";
 
 const players = [
   { id: "alice", displayName: "Alice", chessComUsername: "alice" },
@@ -86,6 +87,47 @@ test("draw codes are human-reviewed and abandoned games are ignored", () => {
   assert.equal(isAbortedChessComResult("abandoned"), true);
   assert.equal(isAbortedChessComResult("aborted"), true);
   assert.equal(isAbortedChessComResult("checkmated"), false);
+});
+
+test("sync diagnostics explain skipped and pending archive games", () => {
+  const playersByUsername = new Map([["alice", "alice"], ["bob", "bob"]]);
+  const base = {
+    url: "https://www.chess.com/game/live/diagnostic",
+    rules: "chess",
+    time_control: "600",
+    end_time: Date.parse("2026-10-12T12:00:00.000Z") / 1000,
+    white: { username: "Alice", result: "win" },
+    black: { username: "Bob", result: "checkmated" },
+  };
+
+  const cases = [
+    [null, "invalid_archive_record"],
+    [{ ...base, white: { username: "outsider", result: "win" } }, "unregistered_player"],
+    [{ ...base, black: { username: "Alice", result: "checkmated" } }, "same_player"],
+    [{ ...base, rules: "chess960" }, "unsupported_variant"],
+    [{ ...base, time_control: "600+5" }, "unsupported_time_control"],
+    [{ ...base, end_time: Number.NaN }, "invalid_end_time"],
+    [{ ...base, end_time: Date.parse("2026-10-09T22:59:59.000Z") / 1000 }, "before_cutoff"],
+    [{ ...base, url: "http://chess.com/game/live/diagnostic" }, "invalid_game_url"],
+    [{ ...base, black: { username: "Bob", result: "abandoned" } }, "abandoned_or_aborted"],
+  ];
+  for (const [input, reason] of cases) {
+    assert.equal(normalizeSyncGame(input, playersByUsername).skippedReason, reason);
+  }
+
+  const timeout = normalizeSyncGame({
+    ...base,
+    black: { username: "Bob", result: "timeout" },
+  }, playersByUsername);
+  assert.equal(timeout.candidate.review_status, "pending");
+  assert.equal(timeout.reviewReason, "timeout_or_possible_timeout_requires_review");
+
+  const unclear = normalizeSyncGame({
+    ...base,
+    black: { username: "Bob", result: "unrecognized" },
+  }, playersByUsername);
+  assert.equal(unclear.candidate.review_status, "pending");
+  assert.equal(unclear.reviewReason, "unclear_result_requires_review");
 });
 
 test("archive imports auto-approve checkmates and resignations but hold uncertain results for review", () => {

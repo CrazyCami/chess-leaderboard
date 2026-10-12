@@ -100,6 +100,7 @@ the owner should update this list with the result and date when it is done.
 | Review | Retry same decision ID and payload; then retry with changed payload | First retry is a no-op; changed payload is rejected | Unit test passed locally; database SQL test awaits staging |
 | Replay | Approve a late-played game and replay; repeat an import | Chronological standings are correct; duplicate import adds no game | Unit tests passed locally; CI pending |
 | Replay | Five approved eligible games for one pair inside 12 hours, including reversed colours | All five games create rating events and update both ratings | Unit test passed locally; database integration check awaits applying the migration |
+| Leaderboard | Leave the leaderboard page open while a new result is imported | The page reloads leaderboard data automatically every five minutes | Browser test verifies the refresh |
 | Privacy | Public view and unauthenticated page | Only school-approved public data; no pending review/admin data | Not run |
 | Mobile | 320px and 390px viewport, portrait | No page-level horizontal overflow | Playwright passed locally; physical devices still need checking |
 | Desktop | 1280px viewport | Main headings visible; no page-level horizontal overflow | Playwright passed locally; physical computer still needs checking |
@@ -204,10 +205,17 @@ For this project, the daily import migration and GitHub Actions secrets are
 already configured, and the first manual sync completed as described above.
 Apply `20261012140000_allow_frequent_chesscom_sync.sql` to Supabase to enable
 the five-minute polling cadence.
-Use **Actions → Chess.com league sync → Run workflow** to retry or
-backfill. Check each run's log for `eligibleRecordsSeen`, `uniqueGamesSubmitted`,
-and the database `inserted`, `pending`, and `conflicts` counts. Investigate a
-failed run or any conflict before relying on its data. A zero-game successful
-run means only that no eligible games were submitted by that run; it is not
+Use **Actions → Chess.com league sync → Run workflow** to retry or backfill.
+Check each run's log for `archivedGamesRead`, `eligibleRecordsSeen`,
+`uniqueGamesSubmitted`, `skippedGames`, `pendingReviewGames`, and the database
+`inserted`, `pending`, and `conflicts` counts. These counters explain whether
+games were filtered by league rules or need admin review. Investigate a failed
+run or any conflict before relying on its data. A zero-game successful run
+means only that no eligible games were submitted by that run; it is not
 evidence that the full school league workflow or admin review interface is
 ready.
+
+The open leaderboard page requests updated standings every five minutes. A
+scheduled database import and the browser refresh are separate processes; a
+newly imported result appears after both have run and, if pending, an admin
+has approved or corrected it.
