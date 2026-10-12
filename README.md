@@ -12,6 +12,26 @@ A Next.js and TypeScript school year-group chess league. The leaderboard can rea
 
 The public page reads standings from Supabase. Admin sign-in and the review interface are not built yet. Never use a Supabase secret key in a `NEXT_PUBLIC_` variable. Keep `.env.local` private; Git ignores it.
 
+## Website interface
+
+The public page (`app/page.tsx`, rendered by `src/league/LeagueDashboard.tsx`)
+reads only public, row-level-secured data with the publishable key:
+
+- `leaderboard` view for the standings table (rank, league Elo, W–D–L record,
+  games). Players with no rated games show a blank rank.
+- `rating_replays` (latest generation), `rating_events` and approved `games`
+  for the per-player form and trend columns, the rating history chart, the
+  recent games scoresheet and the "standings as of" time.
+- `league_settings` for the starting rating and K-factor shown in the facts
+  row.
+
+If the history queries fail the standings still render; the chart and game
+panels show a quiet message instead. Pure display helpers live in
+`src/league/league-view.ts` and are covered by `npm test`. The chart assigns
+each player a fixed colour slot (up to eight shown at once) so colours never
+change when other players are hidden. The page follows the system light/dark
+setting.
+
 ## Team roles
 
 - Person 1 owns the website interface and visual design.
