@@ -39,7 +39,14 @@ export function SupabaseLeaderboard() {
           throw new Error(`Supabase returned HTTP ${response.status}.`);
         }
 
-        setEntries((await response.json()) as LeaderboardEntry[]);
+        const leaderboard = (await response.json()) as LeaderboardEntry[];
+        leaderboard.sort((a, b) => {
+          const playedComparison = Number(b.games_played > 0) - Number(a.games_played > 0);
+          if (playedComparison !== 0) return playedComparison;
+
+          return b.rating - a.rating || a.display_name.localeCompare(b.display_name);
+        });
+        setEntries(leaderboard);
       } catch (cause) {
         if (controller.signal.aborted) return;
         setError(

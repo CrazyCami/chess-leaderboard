@@ -32,6 +32,15 @@ successfully applied to the hosted project.
    the three-games-per-pair rolling 12-hour rating limit in both imports and
    admin-triggered rating replays. Until it is applied, hosted ratings do not
    enforce this limit.
+7. Apply `migrations/20261012130000_admin_review_history_undo.sql` once to save
+   before/after snapshots for new review decisions and enable the admin-only
+   history and undo RPC. Older decisions remain visible but cannot be undone
+   automatically because they have no saved before-state.
+8. Apply `migrations/20261012140000_allow_same_day_import_backfills.sql` once
+   so successful syncs can be safely repeated on the same London date and
+   import games that Chess.com publishes late.
+9. Apply `migrations/20261012150000_update_roster_alek_add_pablo.sql` once to
+   update Alex's display name to Alek and add Pablo (`michi33m`) to the roster.
 
 Keep database passwords and Supabase secret/service keys out of this
 repository and out of browser code. The roster seed contains only the player
@@ -63,6 +72,10 @@ names and usernames already provided for this league; it does not add games.
   an admin/service key to browser code.
 - The review RPC accepts a UUID `request_id`. Reuse that same ID when retrying
   the same decision, and create a new ID for a new decision.
+- The review page shows the latest 100 decisions to admins. An admin can undo
+  only their own most recent decision for a game, with a required reason.
+  Undo appends an immutable audit record, restores the saved game state, and
+  writes a new full rating replay; it never deletes the original decision.
 - Each new review decision creates a complete rating replay. Only approved
   standard chess games with a 600-second base and zero increment (`600` or
   `600+0`, with optional surrounding whitespace) count, subject to the
