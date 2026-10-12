@@ -258,7 +258,7 @@ test("rating replay counts approved eligible wins, losses, and draws chronologic
   assert.deepEqual(replay.excludedGames.map(({ gameId }) => gameId).sort(), ["increment", "pending"]);
 });
 
-test("rating replay counts every eligible game between the same pair", () => {
+test("standings replay processes every game included for the same pair", () => {
   const start = Date.parse("2026-10-10T12:00:00.000Z");
   const at = (hours) => new Date(start + hours * 60 * 60 * 1000).toISOString();
   const replay = replayRatings(players, [

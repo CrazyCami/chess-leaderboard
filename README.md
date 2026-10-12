@@ -35,7 +35,9 @@ counted game; changing a rule later can change standings.
   replay, and displayed to the nearest whole point. Rankings use the unrounded
   rating. Chess.com ratings do not affect league ratings. Games are replayed
   chronologically, with game ID as the stable tie-breaker; late approvals can
-  therefore change later results.
+  therefore change later results. At most three approved eligible games
+  between the same pair of players count in any rolling 12-hour window;
+  reversing colours does not change the player pair.
 - **Outcomes:** Elo uses 1 for a win, 0.5 for a draw, and 0 for a loss. The
   opponent receives the complementary score. An abandoned/aborted game is
   excluded entirely: it is not a zero-score loss, creates no rating event, and
@@ -99,7 +101,7 @@ the owner should update this list with the result and date when it is done.
 | Review | Sign in at `/review`, approve, reject, or correct a pending game | Audit decision recorded; only approved eligible games affect standings | Admin UI mock browser test passed; staging SQL integration test not run |
 | Review | Retry same decision ID and payload; then retry with changed payload | First retry is a no-op; changed payload is rejected | Unit test passed locally; database SQL test awaits staging |
 | Replay | Approve a late-played game and replay; repeat an import | Chronological standings are correct; duplicate import adds no game | Unit tests passed locally; CI pending |
-| Replay | Five approved eligible games for one pair inside 12 hours, including reversed colours | All five games create rating events and update both ratings | Unit test passed locally; database integration check awaits applying the migration |
+| Replay | Five approved eligible games for one pair inside 12 hours, including reversed colours | Only the first three games create rating events and update both ratings | Database integration check awaits applying the migration |
 | Leaderboard | Leave the leaderboard page open while a new result is imported | The page reloads leaderboard data automatically every five minutes | Browser test verifies the refresh |
 | Privacy | Public view and unauthenticated page | Only school-approved public data; no pending review/admin data | Not run |
 | Mobile | 320px and 390px viewport, portrait | No page-level horizontal overflow | Playwright passed locally; physical devices still need checking |

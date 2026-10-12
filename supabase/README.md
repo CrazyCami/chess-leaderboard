@@ -31,11 +31,14 @@ successfully applied to the hosted project.
 6. Apply `migrations/20261012120000_pair_game_rating_limit.sql` once if it has
    not already been applied.
 7. Apply `migrations/20261012130000_count_all_eligible_rating_games.sql` once.
-   This removes the previous pair limit from database replays so every
-   approved, otherwise eligible game contributes to both players' ratings.
+   This temporarily removes the pair limit from database replays.
 8. Apply `migrations/20261012140000_allow_frequent_chesscom_sync.sql` once.
    This allows each five-minute scheduled poll to run instead of limiting
    successful imports to one per London calendar date.
+9. Apply `migrations/20261012150000_restore_pair_game_rating_limit.sql` once.
+   This restores the limit of three approved, otherwise eligible games between
+   the same pair of players in any rolling 12-hour window. Reversed colours
+   count toward the same limit.
 
 Keep database passwords and Supabase secret/service keys out of this
 repository and out of browser code. The roster seed contains only the player
@@ -82,5 +85,6 @@ names and usernames already provided for this league; it does not add games.
   Replace the admin UUID placeholder and run the entire script in Supabase SQL
   Editor after applying the migrations. It rolls back its temporary game and
   checks the RPC permission, correction, audit, rating replay, retry, and that
-  every one of five eligible games between the same pair is replayed.
+  only the first three of five eligible games between the same pair inside
+  twelve hours are replayed, including games with reversed colours.
   It has not yet been run against the hosted project.

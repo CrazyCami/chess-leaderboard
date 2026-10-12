@@ -47,6 +47,7 @@ declare
   v_game_id uuid;
   v_replay_id uuid;
   v_event_count integer;
+  v_fourth_game_event_count integer;
   v_fifth_game_event_count integer;
   v_index integer;
 begin
@@ -70,7 +71,7 @@ begin
   end loop;
 
   v_replay_id := private.rebuild_league_ratings(
-    null, 'Staging all eligible games integration test'
+    null, 'Staging pair game limit integration test'
   );
   select count(*) into v_event_count
     from public.rating_events
@@ -78,10 +79,15 @@ begin
   select count(*) into v_fifth_game_event_count
     from public.rating_events
    where replay_id = v_replay_id and game_id = v_game_ids[5];
+  select count(*) into v_fourth_game_event_count
+    from public.rating_events
+   where replay_id = v_replay_id and game_id = v_game_ids[4];
 
-  if v_event_count <> 10 or v_fifth_game_event_count <> 2 then
-    raise exception 'Expected five counted games (ten events), including two events for game five; got % events total and % for game five.',
-      v_event_count, v_fifth_game_event_count;
+  if v_event_count <> 6
+     or v_fourth_game_event_count <> 0
+     or v_fifth_game_event_count <> 0 then
+    raise exception 'Expected only the first three games to count (six events); got % total, % for game four, and % for game five.',
+      v_event_count, v_fourth_game_event_count, v_fifth_game_event_count;
   end if;
 end;
 $$;
