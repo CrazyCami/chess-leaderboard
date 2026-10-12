@@ -9,7 +9,7 @@ currently has no games.
 ## Current rules in code
 
 - Every registered player starts at 1000.
-- The default K-factor is 32. K controls how much a rating moves after a game;
+- The default K-factor is 50. K controls how much a rating moves after a game;
   the settings are passed in, so the team can change it later.
 - `elo.ts` uses the standard Elo expected-score equation. It does not round
   stored values. The UI can choose how many decimal places to display.

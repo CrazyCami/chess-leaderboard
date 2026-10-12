@@ -414,6 +414,27 @@ tbody th { font-weight: 600; }
 .review-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .review-actions label { margin-left: 8px; }
 .review-actions select { width: auto; }
+.admin-history { margin-top: 36px; border-top: 2px solid var(--line); padding-top: 24px; }
+.history-list { display: grid; gap: 16px; margin: 16px 0 0; padding: 0; list-style: none; }
+.history-item { display: grid; gap: 10px; border-top: 1px solid var(--line); padding: 18px 0; }
+.history-item p { margin: 0; }
+.history-item a { width: fit-content; font-weight: 600; }
+.history-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.history-heading h3 { margin: 0; text-transform: capitalize; }
+.history-heading time { color: var(--muted); font-size: 0.85rem; }
+.history-undo { display: grid; gap: 10px; max-width: 640px; }
+.history-undo label { font-size: 0.9rem; font-weight: 600; color: var(--ink); }
+.history-undo textarea {
+  width: 100%;
+  min-height: 64px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  padding: 10px;
+}
+.admin-panel code { overflow-wrap: anywhere; }
 
 @media (max-width: 820px) {
   .detail-grid { grid-template-columns: 1fr; }
@@ -436,6 +457,7 @@ tbody th { font-weight: 600; }
   .review-actions { align-items: stretch; flex-direction: column; }
   .review-actions label { margin: 8px 0 0; }
   .review-actions select { width: 100%; }
+  .history-heading { align-items: flex-start; flex-direction: column; }
 }
 
 @media (prefers-reduced-motion: reduce) {

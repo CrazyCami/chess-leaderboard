@@ -157,9 +157,11 @@ export function LeagueDashboard() {
 
   // The view orders by rating alone; show players with rated games first so a
   // 999-rated player is not buried under everyone still on the starting rating.
-  const orderedEntries = [...(entries ?? [])].sort(
-    (left, right) => Number(right.games_played > 0) - Number(left.games_played > 0),
-  );
+  const orderedEntries = [...(entries ?? [])].sort((left, right) => {
+    const playedComparison = Number(right.games_played > 0) - Number(left.games_played > 0);
+    if (playedComparison !== 0) return playedComparison;
+    return right.rating - left.rating || left.display_name.localeCompare(right.display_name);
+  });
   const ranks = rankActivePlayers(orderedEntries);
   const eventsForGame = (gameId: string) => (historyData?.events ?? []).filter((event) => event.game_id === gameId);
 

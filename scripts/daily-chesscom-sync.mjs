@@ -17,6 +17,14 @@ const headers = {
   "User-Agent": "SchoolChessLeague/1.0 (scheduled sync; contact league administrator)",
 };
 
+class ChessComHttpError extends Error {
+  constructor(status, url) {
+    super(`Chess.com returned HTTP ${status} for ${url}`);
+    this.name = "ChessComHttpError";
+    this.status = status;
+  }
+}
+
 async function getJson(url) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const response = await fetch(url, {
@@ -32,7 +40,7 @@ async function getJson(url) {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
       continue;
     }
-    throw new Error(`Chess.com returned HTTP ${response.status} for ${url}`);
+    throw new ChessComHttpError(response.status, url);
   }
   throw new Error(`Chess.com remained unavailable after retries: ${url}`);
 }
@@ -120,11 +128,22 @@ const monthFloor = Date.UTC(2026, 9, 1);
 const currentMonthFloor = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
 const gamesByUrl = new Map();
 let gamesSeen = 0;
+let playersChecked = 0;
+const playersWithUnavailableArchives = [];
 
 // Fetch every monthly archive from the configured start month. The rolling
 // backfill also catches Chess.com archive/cache updates that arrived late.
 for (const player of players) {
-  const archiveIndex = await getJson(`${API_ROOT}/player/${encodeURIComponent(player.chesscom_username)}/games/archives`);
+  let archiveIndex;
+  try {
+    archiveIndex = await getJson(`${API_ROOT}/player/${encodeURIComponent(player.chesscom_username)}/games/archives`);
+    playersChecked += 1;
+  } catch (error) {
+    if (!(error instanceof ChessComHttpError) || error.status !== 404) throw error;
+    playersWithUnavailableArchives.push(player.chesscom_username);
+    console.warn(`Chess.com returned 404 for ${player.chesscom_username}'s archives; skipping this player's archive. Check the username and public archive availability.`);
+    continue;
+  }
   const archives = Array.isArray(archiveIndex.archives) ? archiveIndex.archives : [];
   for (const archiveUrl of archives) {
     const match = typeof archiveUrl === "string" && /\/(\d{4})\/(\d{2})$/.exec(archiveUrl);
@@ -149,14 +168,15 @@ const result = await supabase("rpc/import_chesscom_games", {
   method: "POST",
   body: JSON.stringify({
     p_sync_date: londonDate,
-    p_players_checked: players.length,
+    p_players_checked: playersChecked,
     p_games_seen: gamesSeen,
     p_games: [...gamesByUrl.values()],
   }),
 });
 console.log(JSON.stringify({
   syncDate: londonDate,
-  playersChecked: players.length,
+  playersChecked,
+  playersWithUnavailableArchives,
   eligibleRecordsSeen: gamesSeen,
   uniqueGamesSubmitted: gamesByUrl.size,
   database: result,

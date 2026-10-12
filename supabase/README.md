@@ -28,14 +28,28 @@ successfully applied to the hosted project.
    `migrations/20261011151100_require_admin_decision_reason.sql` once in
    Supabase SQL Editor. It preserves older audit rows but rejects new decisions
    without a nonblank reason.
-6. Apply `migrations/20261012120000_pair_game_rating_limit.sql` once if it has
-   not already been applied.
-7. Apply `migrations/20261012130000_count_all_eligible_rating_games.sql` once.
-   This removes the previous pair limit from database replays so every
-   approved, otherwise eligible game contributes to both players' ratings.
-8. Apply `migrations/20261012140000_allow_frequent_chesscom_sync.sql` once.
-   This allows each five-minute scheduled poll to run instead of limiting
-   successful imports to one per London calendar date.
+6. Apply `migrations/20261012120000_pair_game_rating_limit.sql` once to enforce
+   the three-games-per-pair rolling 12-hour rating limit in both imports and
+   admin-triggered rating replays. Until it is applied, hosted ratings do not
+   enforce this limit.
+7. Apply `migrations/20261012130000_admin_review_history_undo.sql` once to save
+   before/after snapshots for new review decisions and enable the admin-only
+   history and undo RPC. Older decisions remain visible but cannot be undone
+   automatically because they have no saved before-state.
+8. Apply `migrations/20261012140000_allow_same_day_import_backfills.sql` once
+   so successful syncs can be safely repeated on the same London date and
+   import games that Chess.com publishes late.
+9. Apply `migrations/20261012150000_update_roster_alek_add_pablo.sql` once to
+   update Alex's display name to Alek and add Pablo (`michi33m`) to the roster.
+10. Apply `migrations/20261012160000_add_teddy.sql` once to add Teddy
+    (`MediocreChessSkill`) to the roster.
+11. Apply `migrations/20261012170000_custom_underdog_elo.sql`. It installs the
+    eligible-game helper and introduces the v2 formula in migration history.
+    It is superseded by the next migration.
+12. Apply `migrations/20261012171000_restore_standard_elo.sql` to restore the
+    standard Elo formula with K=50. It recalculates all existing
+    approved eligible games. It preserves prior v2 replay records and their
+    settings as immutable audit history.
 
 Keep database passwords and Supabase secret/service keys out of this
 repository and out of browser code. The roster seed contains only the player
@@ -67,11 +81,18 @@ names and usernames already provided for this league; it does not add games.
   an admin/service key to browser code.
 - The review RPC accepts a UUID `request_id`. Reuse that same ID when retrying
   the same decision, and create a new ID for a new decision.
+- The review page shows the latest 100 decisions to admins. An admin can undo
+  only their own most recent decision for a game, with a required reason.
+  Undo appends an immutable audit record, restores the saved game state, and
+  writes a new full rating replay; it never deletes the original decision.
 - Each new review decision creates a complete rating replay. Only approved
   standard chess games with a 600-second base and zero increment (`600` or
-  `600+0`, with optional surrounding whitespace) count. Every such game
-  contributes to Elo, including multiple games between the same pair in a
-  short period.
+  `600+0`, with optional surrounding whitespace) count, subject to the
+  three-games-per-pair rolling 12-hour cap. The cap is enforced in the
+  database replay, not by Chess.com, so it doesn't prevent excess play.
+- Current Elo formula is `standard-elo-v1` with K=50 and starting rating 1000.
+  Historical replay records retain the formula and settings used when they
+  were created.
 - Browser clients still cannot write league records directly. The daily
   importer, workflow, import migration, and Actions secrets are configured.
   A manual workflow run on 10 October 2026 completed successfully, checked 9
@@ -81,6 +102,6 @@ names and usernames already provided for this league; it does not add games.
 - `manual_tests/review_rpc_integration.sql` is a staging-only transaction test.
   Replace the admin UUID placeholder and run the entire script in Supabase SQL
   Editor after applying the migrations. It rolls back its temporary game and
-  checks the RPC permission, correction, audit, rating replay, retry, and that
-  every one of five eligible games between the same pair is replayed.
+  checks the RPC permission, correction, audit, rating replay, retry, and
+  three-games-per-pair cap paths.
   It has not yet been run against the hosted project.
