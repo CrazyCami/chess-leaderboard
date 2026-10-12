@@ -37,23 +37,23 @@ begin
 end;
 $$;
 
--- Use a fresh pair so pre-existing staging games cannot affect the cap test.
+-- Use a fresh pair so pre-existing staging games cannot affect the replay test.
 do $$
 declare
   v_pair_id text := gen_random_uuid()::text;
-  v_white_id text := 'cap-white-' || v_pair_id;
-  v_black_id text := 'cap-black-' || v_pair_id;
+  v_white_id text := 'replay-white-' || v_pair_id;
+  v_black_id text := 'replay-black-' || v_pair_id;
   v_game_ids uuid[] := array[]::uuid[];
   v_game_id uuid;
   v_replay_id uuid;
   v_event_count integer;
-  v_fourth_game_event_count integer;
+  v_fifth_game_event_count integer;
   v_index integer;
 begin
   insert into public.players (id, display_name)
-  values (v_white_id, 'Pair cap test white'), (v_black_id, 'Pair cap test black');
+  values (v_white_id, 'Replay test white'), (v_black_id, 'Replay test black');
 
-  for v_index in 0..3 loop
+  for v_index in 0..4 loop
     v_game_id := gen_random_uuid();
     v_game_ids := pg_catalog.array_append(v_game_ids, v_game_id);
     insert into public.games (
@@ -70,18 +70,18 @@ begin
   end loop;
 
   v_replay_id := private.rebuild_league_ratings(
-    null, 'Staging pair game cap integration test'
+    null, 'Staging all eligible games integration test'
   );
   select count(*) into v_event_count
     from public.rating_events
    where replay_id = v_replay_id and game_id = any(v_game_ids);
-  select count(*) into v_fourth_game_event_count
+  select count(*) into v_fifth_game_event_count
     from public.rating_events
-   where replay_id = v_replay_id and game_id = v_game_ids[4];
+   where replay_id = v_replay_id and game_id = v_game_ids[5];
 
-  if v_event_count <> 6 or v_fourth_game_event_count <> 0 then
-    raise exception 'Expected three counted games (six events) and no events for the fourth; got % events total and % for game four.',
-      v_event_count, v_fourth_game_event_count;
+  if v_event_count <> 10 or v_fifth_game_event_count <> 2 then
+    raise exception 'Expected five counted games (ten events), including two events for game five; got % events total and % for game five.',
+      v_event_count, v_fifth_game_event_count;
   end if;
 end;
 $$;

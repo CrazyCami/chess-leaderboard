@@ -40,12 +40,9 @@ counted game; changing a rule later can change standings.
   opponent receives the complementary score. An abandoned/aborted game is
   excluded entirely: it is not a zero-score loss, creates no rating event, and
   changes neither player's rating. A game is not counted until approved.
-- **Pair limit:** At most three otherwise eligible, approved games between the
-  same two players count in any rolling 12-hour window, regardless of which
-  player had white. Games beyond that limit remain in the game/review records
-  but create no rating events; an excluded game does not consume a later slot.
-  Games exactly 12 hours apart do not overlap. This limits league rating credit
-  only; it does not prevent players from starting games on Chess.com.
+- **Game counting:** Every approved game that meets the league's eligibility
+  rules counts toward both players' ratings, including multiple games between
+  the same pair in a short period.
 - **League scope:** there is no separate season reset or inactivity penalty in
   the current implementation. Do not promise either until the school has
   agreed a policy and it has been implemented.
@@ -100,8 +97,7 @@ the owner should update this list with the result and date when it is done.
 | Review | Sign in at `/review`, approve, reject, or correct a pending game | Audit decision recorded; only approved eligible games affect standings | Admin UI mock browser test passed; staging SQL integration test not run |
 | Review | Retry same decision ID and payload; then retry with changed payload | First retry is a no-op; changed payload is rejected | Unit test passed locally; database SQL test awaits staging |
 | Replay | Approve a late-played game and replay; repeat an import | Chronological standings are correct; duplicate import adds no game | Unit tests passed locally; CI pending |
-| Pair limit | Four approved games for one pair inside 12 hours, including reversed colours | First three count; fourth has no rating events | Unit tests added; database integration check awaits applying the migration |
-| Pair limit | Same pair plays at the exact 12-hour boundary or after a counted game expires | Expired games no longer use a slot | Unit tests added; database integration check awaits applying the migration |
+| Replay | Five approved eligible games for one pair inside 12 hours, including reversed colours | All five games create rating events and update both ratings | Unit test passed locally; database integration check awaits applying the migration |
 | Privacy | Public view and unauthenticated page | Only school-approved public data; no pending review/admin data | Not run |
 | Mobile | 320px and 390px viewport, portrait | No page-level horizontal overflow | Playwright passed locally; physical devices still need checking |
 | Desktop | 1280px viewport | Main headings visible; no page-level horizontal overflow | Playwright passed locally; physical computer still needs checking |
