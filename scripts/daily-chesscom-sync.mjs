@@ -1,23 +1,9 @@
-const london = new Intl.DateTimeFormat("en-GB", {
+const londonDate = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/London",
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
-  hour: "2-digit",
-  hourCycle: "h23",
-});
-const londonParts = Object.fromEntries(
-  london.formatToParts(new Date()).map(({ type, value }) => [type, value]),
-);
-const londonDate = `${londonParts.year}-${londonParts.month}-${londonParts.day}`;
-const londonHour = Number(londonParts.hour);
-
-// GitHub Actions schedules use UTC: 15:00 UTC is 16:00 in BST and
-// 16:00 UTC is 16:00 in GMT. Hour 17 is a one-hour delay recovery window.
-if (process.env.GITHUB_EVENT_NAME !== "workflow_dispatch" && londonHour !== 16 && londonHour !== 17) {
-  console.log(`Outside the London sync window (${londonDate} ${londonHour}:00); skipping.`);
-  process.exit(0);
-}
+}).format(new Date());
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const secretKey = process.env.SUPABASE_SECRET_KEY;
@@ -28,7 +14,7 @@ if (!supabaseUrl || !secretKey) {
 const API_ROOT = "https://api.chess.com/pub";
 const CUTOFF = Date.parse("2026-10-09T23:00:00.000Z") / 1000;
 const headers = {
-  "User-Agent": "SchoolChessLeague/1.0 (daily sync; contact league administrator)",
+  "User-Agent": "SchoolChessLeague/1.0 (scheduled sync; contact league administrator)",
 };
 
 async function getJson(url) {
