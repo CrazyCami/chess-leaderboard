@@ -33,6 +33,9 @@ successfully applied to the hosted project.
 7. Apply `migrations/20261012130000_count_all_eligible_rating_games.sql` once.
    This removes the previous pair limit from database replays so every
    approved, otherwise eligible game contributes to both players' ratings.
+8. Apply `migrations/20261012140000_allow_frequent_chesscom_sync.sql` once.
+   This allows each five-minute scheduled poll to run instead of limiting
+   successful imports to one per London calendar date.
 
 Keep database passwords and Supabase secret/service keys out of this
 repository and out of browser code. The roster seed contains only the player
