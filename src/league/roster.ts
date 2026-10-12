@@ -62,6 +62,6 @@ export const registeredPlayers: Player[] = [
   {
     id: "chesscom-alexsander123456789012",
     displayName: "Alex",
-    chessComUsername: "alexsander123456789012",
+    chessComUsername: "aleksander123456789012",
   },
 ];
