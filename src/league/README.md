@@ -27,9 +27,11 @@ currently has no games.
 ## Import and review behavior
 
 `parseChessComResult` maps only result pairs the league currently recognizes.
-Clear checkmate results can be auto-approved. Draws, resignations, timeout or
-possible-timeout codes, generic losses, and unknown result pairs remain pending
-for human review. Abandoned/aborted games are ignored entirely.
+Clear checkmate and resignation results can be auto-approved. For a resignation,
+the player with the `resigned` result loses and their opponent's `win` determines
+the winner. Draws, timeout or possible-timeout codes, generic losses, and unknown
+result pairs remain pending for human review. Abandoned/aborted games are
+ignored entirely.
 
 `mergeImportedGames` uses the Chess.com game URL as the stable source identity.
 An identical re-import is a no-op. If a previously seen URL comes back with
@@ -51,8 +53,8 @@ into the website yet.
 - Admin sign-in, provisioning the first admin account, and a review interface.
   The RPC checks that a reviewer is an authenticated league admin.
 - Apply the new daily import migration and add GitHub Actions secrets, then
-  enable the prepared workflow. The workflow checks the 16:00 London window
-  across the BST/GMT UTC change and calls a transactional database import RPC.
+  enable the prepared workflow. The workflow polls every five minutes and
+  calls a transactional database import RPC.
 - A verified Chess.com response contract and result-code mapping before
   enabling automatic imports. See the project README/planning conversation
   for API questions to check against live documentation and sample responses.

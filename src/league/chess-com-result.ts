@@ -14,7 +14,6 @@ const losingResults = new Set(["checkmated", "resigned", "timeout", "lose"]);
 /** Result codes needing a human decision even when the winner can be inferred. */
 const humanReviewResults = new Set([
   ...drawResults,
-  "resigned",
   "timeout",
   "lose",
   "timevsinsufficient",
@@ -25,7 +24,7 @@ export function isAbortedChessComResult(...results: string[]): boolean {
   return results.some((result) => ["abandoned", "aborted"].includes(result.trim().toLowerCase()));
 }
 
-/** Only a recognized, unambiguous checkmate-style decisive result is auto-approved. */
+/** Results needing human review even when the winner can be inferred. */
 export function needsChessComHumanReview(...results: string[]): boolean {
   return results.some((result) => humanReviewResults.has(result.trim().toLowerCase()));
 }

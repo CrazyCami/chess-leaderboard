@@ -40,22 +40,20 @@ counted game; changing a rule later can change standings.
   opponent receives the complementary score. An abandoned/aborted game is
   excluded entirely: it is not a zero-score loss, creates no rating event, and
   changes neither player's rating. A game is not counted until approved.
-- **Pair limit:** At most three otherwise eligible, approved games between the
-  same two players count in any rolling 12-hour window, regardless of which
-  player had white. Games beyond that limit remain in the game/review records
-  but create no rating events; an excluded game does not consume a later slot.
-  Games exactly 12 hours apart do not overlap. This limits league rating credit
-  only; it does not prevent players from starting games on Chess.com.
+- **Game counting:** Every approved game that meets the league's eligibility
+  rules counts toward both players' ratings, including multiple games between
+  the same pair in a short period.
 - **League scope:** there is no separate season reset or inactivity penalty in
   the current implementation. Do not promise either until the school has
   agreed a policy and it has been implemented.
 
 ### Questionable-game approval
 
-The import automatically approves only a recognized decisive checkmate.
-Draws, resignations, timeouts, generic losses, uncertain or unknown result
-codes are pending. Abandoned/aborted games are ignored. Pending and rejected
-games do not affect the leaderboard.
+The import automatically approves recognized decisive checkmate and
+resignation results. The player whose result is `resigned` loses; their
+opponent's `win` records the winner. Draws, timeouts, generic losses, uncertain
+or unknown result codes remain pending for review. Abandoned/aborted games are
+ignored. Pending and rejected games do not affect the leaderboard.
 
 1. A designated league admin checks the source game, both players, date, time
    control, variant, and result. Ask both players or a supervising staff member
@@ -93,15 +91,15 @@ the owner should update this list with the result and date when it is done.
 | Ratings | Draw from equal 1000 ratings, K=32 | Both remain 1000 | Unit test passed locally; CI pending |
 | Results | Recognized checkmate win/loss pair | Correct winner; eligible for auto-approval | Unit test passed locally; CI pending |
 | Results | Agreed draw, stalemate, repetition, insufficient material, 50-move draw | Draw; pending admin review | Unit tests passed locally; CI pending |
-| Results | Resignation or timeout with a winner | Correct winner; pending admin review | Unit tests passed locally; CI pending |
+| Results | Resignation and opponent win | Resigning player loses; result is auto-approved and counted in Elo | Unit test passed locally |
+| Results | Timeout with a winner | Correct winner; pending admin review | Unit tests passed locally; CI pending |
 | Results | Abandoned/aborted game | Excluded from Elo; no rating event or rating change for either player | Unit test passed locally; CI pending |
 | Results | Unknown, conflicting, or malformed result pair | Pending; cannot approve without correction | Core unknown/conflicting cases passed locally; malformed payload case still needs a test |
 | Eligibility | Variant, time control, date, player, or timestamp outside league rules | Excluded from ratings | Unit tests passed locally; CI pending |
 | Review | Sign in at `/review`, approve, reject, or correct a pending game | Audit decision recorded; only approved eligible games affect standings | Admin UI mock browser test passed; staging SQL integration test not run |
 | Review | Retry same decision ID and payload; then retry with changed payload | First retry is a no-op; changed payload is rejected | Unit test passed locally; database SQL test awaits staging |
 | Replay | Approve a late-played game and replay; repeat an import | Chronological standings are correct; duplicate import adds no game | Unit tests passed locally; CI pending |
-| Pair limit | Four approved games for one pair inside 12 hours, including reversed colours | First three count; fourth has no rating events | Unit tests added; database integration check awaits applying the migration |
-| Pair limit | Same pair plays at the exact 12-hour boundary or after a counted game expires | Expired games no longer use a slot | Unit tests added; database integration check awaits applying the migration |
+| Replay | Five approved eligible games for one pair inside 12 hours, including reversed colours | All five games create rating events and update both ratings | Unit test passed locally; database integration check awaits applying the migration |
 | Privacy | Public view and unauthenticated page | Only school-approved public data; no pending review/admin data | Not run |
 | Mobile | 320px and 390px viewport, portrait | No page-level horizontal overflow | Playwright passed locally; physical devices still need checking |
 | Desktop | 1280px viewport | Main headings visible; no page-level horizontal overflow | Playwright passed locally; physical computer still needs checking |
@@ -156,7 +154,7 @@ ready while any P0 item remains blocked.
 
 ## Daily Chess.com import setup (Person 2)
 
-The daily workflow is in `.github/workflows/daily-chesscom-sync.yml` and its
+The scheduled workflow is in `.github/workflows/daily-chesscom-sync.yml` and its
 server-side fetcher is `scripts/daily-chesscom-sync.mjs`. It polls the
 Chess.com Published Data API for active roster accounts, uses only standard
 chess with exactly 600 seconds and zero increment, and considers game end
@@ -185,23 +183,28 @@ using the workflow:
    publishable key for this secret and never put the secret in `.env.local`,
    `NEXT_PUBLIC_...`, or committed files. The runner sends this key only in
    the `apikey` header, as Supabase secret keys are not JWT bearer tokens.
-3. Open **Actions → Daily Chess.com league sync → Run workflow** to perform the
-   first import. Manual runs work at any time. Later runs are scheduled for
-   the 16:00 London window; GitHub schedules are UTC-based and can be delayed,
-   so the workflow has a one-hour recovery window and retries missed archive
-   data on subsequent daily polls.
+3. After the daily import migration, apply
+   `supabase/migrations/20261012140000_allow_frequent_chesscom_sync.sql` once
+   in Supabase SQL Editor. It removes the once-per-day import restriction.
+4. Open **Actions → Chess.com league sync → Run workflow** to perform the first
+   import. Manual runs work at any time. Scheduled runs occur every five
+   minutes. GitHub may delay scheduled workflows, so check the Actions history
+   and rely on later polls to retry missed archive data.
 
-The first sync scans monthly archives from October 2026 through the current
-month. Later syncs continue rescanning that range so cached/late-published
-games can be picked up. A unique Chess.com game URL and a London-calendar-date
-lock make retries and overlapping workflow invocations safe. Aborted/abandoned
-source results are skipped; clear checkmate outcomes are approved automatically;
-draws, resignations, timeouts/possible timeouts, generic losses, and unrecognized
-result codes wait in the review queue. Only approved games affect ratings.
+Each sync scans monthly archives from October 2026 through the current month.
+Repeated polls allow cached/late-published games to be picked up. A unique
+Chess.com game URL and database locking make retries and overlapping workflow
+invocations safe. Aborted/abandoned source results are skipped; clear checkmate
+and resignation outcomes are approved automatically, with the resigning player
+recorded as the loser. Draws, timeouts/possible timeouts, generic losses, and
+unrecognized result codes wait in the review queue. Only approved games affect
+ratings.
 
 For this project, the daily import migration and GitHub Actions secrets are
 already configured, and the first manual sync completed as described above.
-Use **Actions → Daily Chess.com league sync → Run workflow** to retry or
+Apply `20261012140000_allow_frequent_chesscom_sync.sql` to Supabase to enable
+the five-minute polling cadence.
+Use **Actions → Chess.com league sync → Run workflow** to retry or
 backfill. Check each run's log for `eligibleRecordsSeen`, `uniqueGamesSubmitted`,
 and the database `inserted`, `pending`, and `conflicts` counts. Investigate a
 failed run or any conflict before relying on its data. A zero-game successful
