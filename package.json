@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint app src tests eslint.config.mjs next.config.ts playwright.config.mjs",
-    "test": "tsc --target ES2020 --module commonjs --moduleResolution node --outDir node_modules/.cache/league-test-build --rootDir src/league --strict --skipLibCheck src/league/elo.ts src/league/model.ts src/league/eligibility.ts src/league/standings.ts src/league/chess-com-result.ts src/league/chess-com-published-data.ts src/league/review.ts src/league/import-dedupe.ts && node --test tests/league.test.mjs"
+    "test": "tsc --target ES2020 --module commonjs --moduleResolution node --outDir node_modules/.cache/league-test-build --rootDir src/league --strict --skipLibCheck src/league/elo.ts src/league/model.ts src/league/eligibility.ts src/league/standings.ts src/league/chess-com-result.ts src/league/chess-com-published-data.ts src/league/review.ts src/league/import-dedupe.ts src/league/league-view.ts && node --test tests/league.test.mjs"
   },
   "dependencies": {
     "next": "15.5.27",

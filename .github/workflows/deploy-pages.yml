@@ -1,0 +1,62 @@
+name: Deploy to GitHub Pages
+
+# Builds the site as static files and publishes them with GitHub Pages.
+# One-time setup in the repository settings:
+#   1. Pages -> Build and deployment -> Source: "GitHub Actions".
+#   2. Secrets and variables -> Actions -> Variables: add
+#      NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.
+#      The publishable key is safe in browser code; never add a secret key.
+# Then every push to main deploys, or run the workflow by hand from the
+# Actions tab.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_OUTPUT_EXPORT: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+      - run: npm ci
+      - name: Build static site
+        run: npm run build
+        env:
+          NEXT_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+      - name: Keep underscore-prefixed Next.js assets
+        run: touch out/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

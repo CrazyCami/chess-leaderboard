@@ -295,3 +295,92 @@ test("reimporting the same source game is a no-op and changed facts conflict", (
   const changed = mergeImportedGames(first.games, [{ ...imported, result: "black_win" }]);
   assert.deepEqual(changed.conflictIds, ["imported"]);
 });
+
+// Public page helpers (src/league/league-view.ts).
+import {
+  assignSeriesSlots,
+  buildRatingSeries,
+  formatChange,
+  niceTicks,
+  rankActivePlayers,
+  recentChange,
+  recentForm,
+  resultNotation,
+} from "../node_modules/.cache/league-test-build/league-view.js";
+
+function ratingEvent(overrides = {}) {
+  return {
+    game_id: "g1",
+    player_id: "alice",
+    opponent_id: "bob",
+    played_at: "2026-10-10T12:00:00.000Z",
+    result: "win",
+    rating_before: 1000,
+    rating_change: 16,
+    rating_after: 1016,
+    ...overrides,
+  };
+}
+
+test("rankActivePlayers numbers only players with rated games, keeping view order", () => {
+  const ranks = rankActivePlayers([
+    { player_id: "a", games_played: 3 },
+    { player_id: "b", games_played: 0 },
+    { player_id: "c", games_played: 1 },
+  ]);
+  assert.deepEqual([...ranks.entries()], [["a", 1], ["c", 2]]);
+});
+
+test("resultNotation uses scoresheet notation from White's side", () => {
+  assert.equal(resultNotation("white_win"), "1–0");
+  assert.equal(resultNotation("black_win"), "0–1");
+  assert.equal(resultNotation("draw"), "½–½");
+  assert.equal(resultNotation(null), "?");
+});
+
+test("formatChange rounds and signs rating changes with a real minus sign", () => {
+  assert.equal(formatChange(15.6), "+16");
+  assert.equal(formatChange(-15.6), "−16");
+  assert.equal(formatChange(0.2), "0");
+});
+
+test("buildRatingSeries starts each curve at the rating before the first game", () => {
+  const series = buildRatingSeries([
+    ratingEvent({ game_id: "g2", played_at: "2026-10-11T12:00:00.000Z", rating_before: 1016, rating_change: -8, rating_after: 1008, result: "loss" }),
+    ratingEvent(),
+    ratingEvent({ player_id: "bob", opponent_id: "alice", result: "loss", rating_change: -16, rating_after: 984 }),
+  ]);
+  const alice = series.find((item) => item.playerId === "alice");
+  assert.deepEqual(alice.points.map((point) => point.rating), [1000, 1016, 1008]);
+  assert.equal(alice.points[0].gameId, undefined);
+  assert.equal(alice.points[0].time, Date.parse("2026-10-10T12:00:00.000Z") - 30 * 60 * 1000);
+  const bob = series.find((item) => item.playerId === "bob");
+  assert.equal(bob.points[0].time, alice.points[0].time);
+  assert.equal(alice.points[2].change, -8);
+});
+
+test("recentChange and recentForm look at the last five games only", () => {
+  const events = [];
+  for (let index = 0; index < 7; index += 1) {
+    events.push(ratingEvent({ game_id: `g${index}`, rating_change: index < 2 ? 100 : 1, result: index < 2 ? "win" : "draw" }));
+  }
+  assert.equal(recentChange(events), 5);
+  assert.deepEqual(recentForm(events), ["D", "D", "D", "D", "D"]);
+});
+
+test("niceTicks brackets the data with round steps", () => {
+  assert.deepEqual(niceTicks(984, 1031, 5), [980, 1000, 1020, 1040]);
+  assert.deepEqual(niceTicks(1000, 1000, 5), [960, 980, 1000, 1020, 1040]);
+});
+
+test("assignSeriesSlots keeps a player's colour when others are hidden", () => {
+  const first = assignSeriesSlots(new Map(), ["a", "b", "c"]);
+  assert.deepEqual([...first.entries()], [["a", 0], ["b", 1], ["c", 2]]);
+  const afterHidingA = assignSeriesSlots(first, ["b", "c"]);
+  assert.deepEqual([...afterHidingA.entries()], [["b", 1], ["c", 2]]);
+  const afterAddingD = assignSeriesSlots(afterHidingA, ["b", "c", "d"]);
+  assert.equal(afterAddingD.get("d"), 0);
+  const tooMany = assignSeriesSlots(new Map(), ["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+  assert.equal(tooMany.size, 8);
+  assert.equal(tooMany.has("9"), false);
+});
