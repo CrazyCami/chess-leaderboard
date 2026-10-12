@@ -49,10 +49,11 @@ counted game; changing a rule later can change standings.
 
 ### Questionable-game approval
 
-The import automatically approves only a recognized decisive checkmate.
-Draws, resignations, timeouts, generic losses, uncertain or unknown result
-codes are pending. Abandoned/aborted games are ignored. Pending and rejected
-games do not affect the leaderboard.
+The import automatically approves recognized decisive checkmate and
+resignation results. The player whose result is `resigned` loses; their
+opponent's `win` records the winner. Draws, timeouts, generic losses, uncertain
+or unknown result codes remain pending for review. Abandoned/aborted games are
+ignored. Pending and rejected games do not affect the leaderboard.
 
 1. A designated league admin checks the source game, both players, date, time
    control, variant, and result. Ask both players or a supervising staff member
@@ -90,7 +91,8 @@ the owner should update this list with the result and date when it is done.
 | Ratings | Draw from equal 1000 ratings, K=32 | Both remain 1000 | Unit test passed locally; CI pending |
 | Results | Recognized checkmate win/loss pair | Correct winner; eligible for auto-approval | Unit test passed locally; CI pending |
 | Results | Agreed draw, stalemate, repetition, insufficient material, 50-move draw | Draw; pending admin review | Unit tests passed locally; CI pending |
-| Results | Resignation or timeout with a winner | Correct winner; pending admin review | Unit tests passed locally; CI pending |
+| Results | Resignation and opponent win | Resigning player loses; result is auto-approved and counted in Elo | Unit test passed locally |
+| Results | Timeout with a winner | Correct winner; pending admin review | Unit tests passed locally; CI pending |
 | Results | Abandoned/aborted game | Excluded from Elo; no rating event or rating change for either player | Unit test passed locally; CI pending |
 | Results | Unknown, conflicting, or malformed result pair | Pending; cannot approve without correction | Core unknown/conflicting cases passed locally; malformed payload case still needs a test |
 | Eligibility | Variant, time control, date, player, or timestamp outside league rules | Excluded from ratings | Unit tests passed locally; CI pending |
@@ -191,9 +193,10 @@ The first sync scans monthly archives from October 2026 through the current
 month. Later syncs continue rescanning that range so cached/late-published
 games can be picked up. A unique Chess.com game URL and a London-calendar-date
 lock make retries and overlapping workflow invocations safe. Aborted/abandoned
-source results are skipped; clear checkmate outcomes are approved automatically;
-draws, resignations, timeouts/possible timeouts, generic losses, and unrecognized
-result codes wait in the review queue. Only approved games affect ratings.
+source results are skipped; clear checkmate and resignation outcomes are
+approved automatically, with the resigning player recorded as the loser. Draws,
+timeouts/possible timeouts, generic losses, and unrecognized result codes wait
+in the review queue. Only approved games affect ratings.
 
 For this project, the daily import migration and GitHub Actions secrets are
 already configured, and the first manual sync completed as described above.

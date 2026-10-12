@@ -61,7 +61,7 @@ const drawCodes = new Set([
 ]);
 const losingCodes = new Set(["checkmated", "resigned", "timeout", "lose"]);
 const manualReviewCodes = new Set([
-  ...drawCodes, "resigned", "timeout", "lose", "timevsinsufficient",
+  ...drawCodes, "timeout", "lose", "timevsinsufficient",
 ]);
 
 function normalizeGame(game, userToPlayer) {

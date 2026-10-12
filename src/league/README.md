@@ -27,9 +27,11 @@ currently has no games.
 ## Import and review behavior
 
 `parseChessComResult` maps only result pairs the league currently recognizes.
-Clear checkmate results can be auto-approved. Draws, resignations, timeout or
-possible-timeout codes, generic losses, and unknown result pairs remain pending
-for human review. Abandoned/aborted games are ignored entirely.
+Clear checkmate and resignation results can be auto-approved. For a resignation,
+the player with the `resigned` result loses and their opponent's `win` determines
+the winner. Draws, timeout or possible-timeout codes, generic losses, and unknown
+result pairs remain pending for human review. Abandoned/aborted games are
+ignored entirely.
 
 `mergeImportedGames` uses the Chess.com game URL as the stable source identity.
 An identical re-import is a no-op. If a previously seen URL comes back with

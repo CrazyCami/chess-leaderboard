@@ -70,8 +70,10 @@ test("rating calculation rejects invalid ratings and K-factors", () => {
 test("recognized decisive outcomes map to the correct league winner", () => {
   assert.equal(parseChessComResult("win", "checkmated"), "white_win");
   assert.equal(parseChessComResult("resigned", "win"), "black_win");
+  assert.equal(parseChessComResult("win", "resigned"), "white_win");
   assert.equal(parseChessComResult("win", "win"), null);
   assert.equal(parseChessComResult("unknown", "checkmated"), null);
+  assert.equal(needsChessComHumanReview("resigned"), false);
 });
 
 test("draw codes are human-reviewed and abandoned games are ignored", () => {
@@ -86,7 +88,7 @@ test("draw codes are human-reviewed and abandoned games are ignored", () => {
   assert.equal(isAbortedChessComResult("checkmated"), false);
 });
 
-test("archive imports auto-approve checkmate but hold uncertain results for review", () => {
+test("archive imports auto-approve checkmates and resignations but hold uncertain results for review", () => {
   const base = {
     url: "https://www.chess.com/game/live/123",
     rules: "chess",
@@ -118,7 +120,33 @@ test("archive imports auto-approve checkmate but hold uncertain results for revi
     black: { username: "Bob", result: "resigned" },
   }, roster, cutoff);
   assert.equal(resignation.result, "white_win");
-  assert.equal(resignation.review_status, "pending");
+  assert.equal(resignation.review_status, "approved");
+
+  const whiteResignation = normalizeChessComArchiveGame({
+    ...base,
+    white: { username: "Alice", result: "resigned" },
+    black: { username: "Bob", result: "win" },
+  }, roster, cutoff);
+  assert.equal(whiteResignation.result, "black_win");
+  assert.equal(whiteResignation.review_status, "approved");
+
+  const resignationReplay = replayRatings(players, [
+    game({
+      id: "black-resigned",
+      result: resignation.result,
+      reviewStatus: resignation.review_status,
+    }),
+    game({
+      id: "white-resigned",
+      result: whiteResignation.result,
+      reviewStatus: whiteResignation.review_status,
+      playedAt: "2026-10-10T12:01:00.000Z",
+    }),
+  ]);
+  assert.equal(resignationReplay.standings.find(({ playerId }) => playerId === "alice").wins, 1);
+  assert.equal(resignationReplay.standings.find(({ playerId }) => playerId === "alice").losses, 1);
+  assert.equal(resignationReplay.standings.find(({ playerId }) => playerId === "bob").wins, 1);
+  assert.equal(resignationReplay.standings.find(({ playerId }) => playerId === "bob").losses, 1);
 
   const timeout = normalizeChessComArchiveGame({
     ...base,
