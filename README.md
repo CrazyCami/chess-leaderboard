@@ -86,9 +86,9 @@ the owner should update this list with the result and date when it is done.
 
 | Area | Check | Expected result | Status |
 | --- | --- | --- | --- |
-| Ratings | White wins from equal 1000 ratings, K=50 | White 1025, Black 975 | Unit test passed locally; CI pending |
-| Ratings | Black wins from equal 1000 ratings, K=50 | White 975, Black 1025 | Unit test passed locally; CI pending |
-| Ratings | Draw from equal 1000 ratings, K=50 | Both remain 1000 | Unit test passed locally; CI pending |
+| Ratings | White wins from equal 1000 ratings, K=50 | White 1025, Black 975 | Not re-verified after K update |
+| Ratings | Black wins from equal 1000 ratings, K=50 | White 975, Black 1025 | Not re-verified after K update |
+| Ratings | Draw from equal 1000 ratings, K=50 | Both remain 1000 | Not re-verified after K update |
 | Results | Recognized checkmate win/loss pair | Correct winner; eligible for auto-approval | Unit test passed locally; CI pending |
 | Results | Agreed draw, stalemate, repetition, insufficient material, 50-move draw | Draw; pending admin review | Unit tests passed locally; CI pending |
 | Results | Resignation and opponent win | Resigning player loses; result is auto-approved and counted in Elo | Unit test passed locally |
