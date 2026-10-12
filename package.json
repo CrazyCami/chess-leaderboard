@@ -2,7 +2,29 @@
   "name": "school-chess-league",
   "version": "0.1.0",
   "private": true,
-  "scripts": {"dev":"next dev","build":"next build","start":"next start","lint":"eslint ."},
-  "dependencies":{"next":"15.5.6","react":"19.1.1","react-dom":"19.1.1"},
-  "devDependencies":{"@eslint/eslintrc":"^3","@types/node":"^22","@types/react":"^19","@types/react-dom":"^19","eslint":"^9","eslint-config-next":"15.5.6","typescript":"^5"}
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint app src tests eslint.config.mjs next.config.ts playwright.config.mjs",
+    "test": "tsc --target ES2020 --module commonjs --moduleResolution node --outDir node_modules/.cache/league-test-build --rootDir src/league --strict --skipLibCheck src/league/elo.ts src/league/model.ts src/league/eligibility.ts src/league/standings.ts src/league/chess-com-result.ts src/league/chess-com-published-data.ts src/league/review.ts src/league/import-dedupe.ts && node --test tests/league.test.mjs"
+  },
+  "dependencies": {
+    "next": "15.5.27",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@playwright/test": "1.55.0",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.27",
+    "typescript": "^5"
+  },
+  "overrides": {
+    "postcss": "8.5.29"
+  }
 }

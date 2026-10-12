@@ -53,6 +53,11 @@ export function SupabaseLeaderboard() {
   }, []);
 
   const configured = Boolean(projectUrl && publishableKey);
+  const rankByPlayerId = new Map<string, number>(
+    (entries ?? [])
+      .filter((player) => player.games_played > 0)
+      .map((player, index): [string, number] => [player.player_id, index + 1]),
+  );
 
   return (
     <section aria-labelledby="leaderboard-heading" className="leaderboard">
@@ -91,12 +96,12 @@ export function SupabaseLeaderboard() {
               </tr>
             </thead>
             <tbody>
-              {entries.map((player, index) => (
+              {entries.map((player) => (
                 <tr key={player.player_id}>
-                  <td>{player.games_played === 0 ? "—" : index + 1}</td>
+                  <td>{rankByPlayerId.get(player.player_id) ?? "—"}</td>
                   <th scope="row">{player.display_name}</th>
                   <td>{player.chesscom_username ?? "—"}</td>
-                  <td>{player.rating}</td>
+                  <td>{Math.round(player.rating)}</td>
                   <td>{player.games_played}</td>
                 </tr>
               ))}
