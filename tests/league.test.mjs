@@ -45,15 +45,15 @@ function decision(overrides = {}) {
   };
 }
 
-test("equal-rated wins transfer 16 points and preserve total rating", () => {
+test("equal-rated wins transfer 25 points and preserve total rating", () => {
   const result = calculateEloChange(1000, 1000, "white_win");
-  assert.equal(result.whiteRatingAfter, 1016);
-  assert.equal(result.blackRatingAfter, 984);
+  assert.equal(result.whiteRatingAfter, 1025);
+  assert.equal(result.blackRatingAfter, 975);
   assert.equal(result.whiteRatingAfter + result.blackRatingAfter, 2000);
 
   const blackWin = calculateEloChange(1000, 1000, "black_win");
-  assert.equal(blackWin.whiteRatingAfter, 984);
-  assert.equal(blackWin.blackRatingAfter, 1016);
+  assert.equal(blackWin.whiteRatingAfter, 975);
+  assert.equal(blackWin.blackRatingAfter, 1025);
 });
 
 test("an equal-rated draw leaves both ratings unchanged", () => {
@@ -208,7 +208,7 @@ test("rating replay counts approved eligible wins, losses, and draws chronologic
   ]);
   const aliceStanding = replay.standings.find((standing) => standing.playerId === "alice");
   assert.equal(aliceStanding.playerId, "alice");
-  assert.ok(Math.abs(aliceStanding.rating - 1014.5304984710245) < 1e-10);
+  assert.ok(Math.abs(aliceStanding.rating - 1021.4268441295809) < 1e-10);
   assert.equal(aliceStanding.wins, 1);
   assert.equal(aliceStanding.draws, 1);
   assert.equal(aliceStanding.losses, 0);

@@ -41,6 +41,15 @@ successfully applied to the hosted project.
    import games that Chess.com publishes late.
 9. Apply `migrations/20261012150000_update_roster_alek_add_pablo.sql` once to
    update Alex's display name to Alek and add Pablo (`michi33m`) to the roster.
+10. Apply `migrations/20261012160000_add_teddy.sql` once to add Teddy
+    (`MediocreChessSkill`) to the roster.
+11. Apply `migrations/20261012170000_custom_underdog_elo.sql`. It installs the
+    eligible-game helper and introduces the v2 formula in migration history.
+    It is superseded by the next migration.
+12. Apply `migrations/20261012171000_restore_standard_elo.sql` to restore the
+    standard Elo formula with K=50. It recalculates all existing
+    approved eligible games. It preserves prior v2 replay records and their
+    settings as immutable audit history.
 
 Keep database passwords and Supabase secret/service keys out of this
 repository and out of browser code. The roster seed contains only the player
@@ -81,6 +90,9 @@ names and usernames already provided for this league; it does not add games.
   `600+0`, with optional surrounding whitespace) count, subject to the
   three-games-per-pair rolling 12-hour cap. The cap is enforced in the
   database replay, not by Chess.com, so it doesn't prevent excess play.
+- Current Elo formula is `standard-elo-v1` with K=50 and starting rating 1000.
+  Historical replay records retain the formula and settings used when they
+  were created.
 - Browser clients still cannot write league records directly. The daily
   importer, workflow, import migration, and Actions secrets are configured.
   A manual workflow run on 10 October 2026 completed successfully, checked 9

@@ -31,7 +31,7 @@ counted game; changing a rule later can change standings.
   Europe/London on 10 October 2026. Games must have two different players, a
   recognized result, and a valid played-at time.
 - **Ratings:** every player starts at 1000. Use standard Elo
-  (`standard-elo-v1`) with K-factor 32. Ratings are unrounded in storage and
+  (`standard-elo-v1`) with K-factor 50. Ratings are unrounded in storage and
   replay, and displayed to the nearest whole point. Rankings use the unrounded
   rating. Chess.com ratings do not affect league ratings. Games are replayed
   chronologically, with game ID as the stable tie-breaker; late approvals can
@@ -86,9 +86,9 @@ the owner should update this list with the result and date when it is done.
 
 | Area | Check | Expected result | Status |
 | --- | --- | --- | --- |
-| Ratings | White wins from equal 1000 ratings, K=32 | White 1016, Black 984 | Unit test passed locally; CI pending |
-| Ratings | Black wins from equal 1000 ratings, K=32 | White 984, Black 1016 | Unit test passed locally; CI pending |
-| Ratings | Draw from equal 1000 ratings, K=32 | Both remain 1000 | Unit test passed locally; CI pending |
+| Ratings | White wins from equal 1000 ratings, K=50 | White 1025, Black 975 | Unit test passed locally; CI pending |
+| Ratings | Black wins from equal 1000 ratings, K=50 | White 975, Black 1025 | Unit test passed locally; CI pending |
+| Ratings | Draw from equal 1000 ratings, K=50 | Both remain 1000 | Unit test passed locally; CI pending |
 | Results | Recognized checkmate win/loss pair | Correct winner; eligible for auto-approval | Unit test passed locally; CI pending |
 | Results | Agreed draw, stalemate, repetition, insufficient material, 50-move draw | Draw; pending admin review | Unit tests passed locally; CI pending |
 | Results | Resignation and opponent win | Resigning player loses; result is auto-approved and counted in Elo | Unit test passed locally |
