@@ -154,7 +154,7 @@ ready while any P0 item remains blocked.
 
 ## Daily Chess.com import setup (Person 2)
 
-The daily workflow is in `.github/workflows/daily-chesscom-sync.yml` and its
+The scheduled workflow is in `.github/workflows/daily-chesscom-sync.yml` and its
 server-side fetcher is `scripts/daily-chesscom-sync.mjs`. It polls the
 Chess.com Published Data API for active roster accounts, uses only standard
 chess with exactly 600 seconds and zero increment, and considers game end
@@ -183,24 +183,28 @@ using the workflow:
    publishable key for this secret and never put the secret in `.env.local`,
    `NEXT_PUBLIC_...`, or committed files. The runner sends this key only in
    the `apikey` header, as Supabase secret keys are not JWT bearer tokens.
-3. Open **Actions → Daily Chess.com league sync → Run workflow** to perform the
-   first import. Manual runs work at any time. Later runs are scheduled for
-   the 16:00 London window; GitHub schedules are UTC-based and can be delayed,
-   so the workflow has a one-hour recovery window and retries missed archive
-   data on subsequent daily polls.
+3. After the daily import migration, apply
+   `supabase/migrations/20261012140000_allow_frequent_chesscom_sync.sql` once
+   in Supabase SQL Editor. It removes the once-per-day import restriction.
+4. Open **Actions → Chess.com league sync → Run workflow** to perform the first
+   import. Manual runs work at any time. Scheduled runs occur every five
+   minutes. GitHub may delay scheduled workflows, so check the Actions history
+   and rely on later polls to retry missed archive data.
 
-The first sync scans monthly archives from October 2026 through the current
-month. Later syncs continue rescanning that range so cached/late-published
-games can be picked up. A unique Chess.com game URL and a London-calendar-date
-lock make retries and overlapping workflow invocations safe. Aborted/abandoned
-source results are skipped; clear checkmate and resignation outcomes are
-approved automatically, with the resigning player recorded as the loser. Draws,
-timeouts/possible timeouts, generic losses, and unrecognized result codes wait
-in the review queue. Only approved games affect ratings.
+Each sync scans monthly archives from October 2026 through the current month.
+Repeated polls allow cached/late-published games to be picked up. A unique
+Chess.com game URL and database locking make retries and overlapping workflow
+invocations safe. Aborted/abandoned source results are skipped; clear checkmate
+and resignation outcomes are approved automatically, with the resigning player
+recorded as the loser. Draws, timeouts/possible timeouts, generic losses, and
+unrecognized result codes wait in the review queue. Only approved games affect
+ratings.
 
 For this project, the daily import migration and GitHub Actions secrets are
 already configured, and the first manual sync completed as described above.
-Use **Actions → Daily Chess.com league sync → Run workflow** to retry or
+Apply `20261012140000_allow_frequent_chesscom_sync.sql` to Supabase to enable
+the five-minute polling cadence.
+Use **Actions → Chess.com league sync → Run workflow** to retry or
 backfill. Check each run's log for `eligibleRecordsSeen`, `uniqueGamesSubmitted`,
 and the database `inserted`, `pending`, and `conflicts` counts. Investigate a
 failed run or any conflict before relying on its data. A zero-game successful
