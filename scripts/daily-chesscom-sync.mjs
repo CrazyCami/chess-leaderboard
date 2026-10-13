@@ -53,7 +53,7 @@ function timeControlIsTenZero(value) {
 const drawCodes = new Set([
   "agreed", "repetition", "stalemate", "insufficient", "50move", "timevsinsufficient",
 ]);
-const losingCodes = new Set(["checkmated", "resigned", "timeout", "lose"]);
+const losingCodes = new Set(["checkmated", "resigned", "timeout", "lose", "abandoned"]);
 const manualReviewCodes = new Set([
   ...drawCodes, "timeout", "lose", "timevsinsufficient",
 ]);
@@ -78,7 +78,8 @@ function normalizeGame(game, userToPlayer) {
 
   const whiteResult = typeof game.white?.result === "string" ? game.white.result.trim().toLowerCase() : "";
   const blackResult = typeof game.black?.result === "string" ? game.black.result.trim().toLowerCase() : "";
-  if ([whiteResult, blackResult].some((result) => result === "abandoned" || result === "aborted")) return null;
+  // "aborted" games never started; "abandoned" means a player walked away and forfeited.
+  if ([whiteResult, blackResult].some((result) => result === "aborted")) return null;
 
   let result = null;
   if (whiteResult === "win" && losingCodes.has(blackResult)) result = "white_win";
