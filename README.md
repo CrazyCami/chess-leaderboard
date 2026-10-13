@@ -182,9 +182,10 @@ server-side fetcher is `scripts/daily-chesscom-sync.mjs`. It polls the
 Chess.com Published Data API for active roster accounts, uses only standard
 chess with exactly 600 seconds and zero increment, and considers game end
 times from 10 October 2026 00:00 Europe/London onward. It scans the current
-month every five minutes and does a full archive backfill daily to catch
-late-published games. The open leaderboard fetches updated standings once a
-minute. GitHub Actions may delay or skip scheduled runs, and Chess.com
+month every five minutes (at minutes 1, 6, 11, and so on) and does a full
+archive backfill daily to catch late-published games. The open leaderboard
+fetches updated standings once a minute. GitHub Actions may delay or skip
+scheduled runs, and Chess.com
 controls when games appear in its archives, so five minutes is a best-effort
 target, not a guaranteed publication time. Each run reports archive games
 seen, eligible candidates, exclusion reasons, and database insert/pending/

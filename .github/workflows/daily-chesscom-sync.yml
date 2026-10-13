@@ -2,8 +2,8 @@ name: Chess.com league sync
 
 on:
   schedule:
-    # GitHub Actions schedule cadence is UTC-based and may be delayed.
-    - cron: "*/5 * * * *"
+    # Offset from the busiest top-of-hour boundary; GitHub may still delay runs.
+    - cron: "1-59/5 * * * *"
     # Recheck the full history daily for games Chess.com publishes late.
     - cron: "18 2 * * *"
   workflow_dispatch:
