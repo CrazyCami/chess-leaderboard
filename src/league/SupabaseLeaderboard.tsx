@@ -30,6 +30,7 @@ export function SupabaseLeaderboard() {
         const response = await fetch(
           `${projectUrl}/rest/v1/leaderboard?select=player_id,display_name,chesscom_username,rating,wins,draws,losses,games_played&order=rating.desc,display_name.asc`,
           {
+            cache: "no-store",
             headers: { apikey: publishableKey! },
             signal: controller.signal,
           },
@@ -49,7 +50,11 @@ export function SupabaseLeaderboard() {
     }
 
     void loadLeaderboard();
-    return () => controller.abort();
+    const refreshInterval = window.setInterval(() => void loadLeaderboard(), 60_000);
+    return () => {
+      controller.abort();
+      window.clearInterval(refreshInterval);
+    };
   }, []);
 
   const configured = Boolean(projectUrl && publishableKey);

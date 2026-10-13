@@ -142,7 +142,7 @@ emulation does not replace a physical-device and accessibility check.
 | P0 | Provision named admin accounts and deploy the admin review workflow | Person 1 + Person 2 | **Implementation added:** `/review` signs in with Supabase Auth, checks admin membership, and calls the restricted review RPC. `/admin` redirects to `/review`. Apply the new reason-required migration, provision named accounts, and verify in staging before launch. |
 | P0 | Run automated domain tests and the staging database integration test | Person 2 + Person 3 | **Partially complete:** test suites and CI are added; CI has not run here and the staging RPC test remains unrun. |
 | P0 | Confirm game rules, result/dispute policy, public display consent, and who can administer the league | Person 3 / organizer | **Needs school decision:** record decisions here before student launch. |
-| P0 | Verify daily imports against a known eligible game and inspect retry/conflict behavior | Person 2 | **Partially verified:** migration and Actions secrets are configured; a manual run succeeded but found 0 eligible games. Verify a scheduled run and a real eligible game before relying on imported results. |
+| P0 | Verify frequent imports against a known eligible game and inspect retry/conflict behavior | Person 2 | **Partially verified:** migration and Actions secrets are configured; a manual run succeeded but found 0 eligible games. Apply the frequent-sync migration and verify a scheduled run and a real eligible game before relying on imported results. |
 | P1 | Verify responsive layout and accessibility on real phones/computers; exercise loading/error/empty states | Person 1 + Person 3 | **Partially complete:** automated viewport, leaderboard, and admin flow tests are added; CI and physical-device/screen-reader checks remain outstanding. |
 | P1 | Add an in-repository issue list with severity, reproduction steps, owner, and resolution as bugs are found | Person 3 | **Open:** use the project issue tracker if available; do not mark launch blockers resolved without verification. |
 | P2 | Add manual game entry, season/archive support, or additional formats | Organizer + team | **Not scoped:** decide only after P0 launch blockers and school rules are settled. |
@@ -154,14 +154,20 @@ keep checking its run logs, but do not rely on game imports until a known
 eligible game has been observed in the database. Do not announce the website as
 ready while any P0 item remains blocked.
 
-## Daily Chess.com import setup (Person 2)
+## Frequent Chess.com import setup (Person 2)
 
-The daily workflow is in `.github/workflows/daily-chesscom-sync.yml` and its
-server-side fetcher is `scripts/daily-chesscom-sync.mjs`. It polls the
+The scheduled workflow is in `.github/workflows/daily-chesscom-sync.yml` and
+its server-side fetcher is `scripts/daily-chesscom-sync.mjs`. It polls the
 Chess.com Published Data API for active roster accounts, uses only standard
 chess with exactly 600 seconds and zero increment, and considers game end
-times from 10 October 2026 00:00 Europe/London onward. Chess.com ratings are
-never read or used.
+times from 10 October 2026 00:00 Europe/London onward. It scans the current
+month every five minutes and does a full archive backfill daily to catch
+late-published games. The open leaderboard fetches updated standings once a
+minute. GitHub Actions may delay or skip scheduled runs, and Chess.com
+controls when games appear in its archives, so five minutes is a best-effort
+target, not a guaranteed publication time. Each run reports archive games
+seen, eligible candidates, exclusion reasons, and database insert/pending/
+conflict counts. Chess.com ratings are never read or used.
 
 The workflow and external setup have been verified by a manual GitHub Actions
 run on 10 October 2026 (`Daily Chess.com league sync`, run
@@ -172,39 +178,40 @@ worked for that run, but does **not** confirm that any games have been
 imported, that the scheduled run has succeeded, or that future syncs will
 succeed.
 
-For a new Supabase project, apply the migration and configure Actions before
+For a new Supabase project, apply the migrations and configure Actions before
 using the workflow:
 
 1. Run `supabase/migrations/20261010190000_chesscom_daily_import.sql` once in
    Supabase SQL Editor. This exposes a narrow RPC to the backend role, stores
    import conflicts, and rebuilds a complete chronological rating replay when
    clear approved games are added.
-2. In GitHub, open the repository's **Settings → Secrets and variables →
+2. Run `supabase/migrations/20261013162800_allow_frequent_chesscom_sync.sql`
+   once. This removes the one-success-per-day lock so repeat polls can discover
+   new games throughout the day; unique Chess.com URLs keep re-imports safe.
+3. In GitHub, open the repository's **Settings → Secrets and variables →
    Actions**, then create `SUPABASE_URL` (the project URL) and
    `SUPABASE_SECRET_KEY` (the server-only Supabase secret key). Do not use the
    publishable key for this secret and never put the secret in `.env.local`,
    `NEXT_PUBLIC_...`, or committed files. The runner sends this key only in
    the `apikey` header, as Supabase secret keys are not JWT bearer tokens.
-3. Open **Actions → Daily Chess.com league sync → Run workflow** to perform the
-   first import. Manual runs work at any time. Later runs are scheduled for
-   the 16:00 London window; GitHub schedules are UTC-based and can be delayed,
-   so the workflow has a one-hour recovery window and retries missed archive
-   data on subsequent daily polls.
+4. Open **Actions → Chess.com league sync → Run workflow** to perform or
+   retry a full backfill. Manual runs work at any time; scheduled runs poll the
+   current month every five minutes and backfill all archive months daily.
 
-The first sync scans monthly archives from October 2026 through the current
-month. Later syncs continue rescanning that range so cached/late-published
-games can be picked up. A unique Chess.com game URL and a London-calendar-date
-lock make retries and overlapping workflow invocations safe. Aborted/abandoned
-source results are skipped; clear checkmate outcomes are approved automatically;
-draws, resignations, timeouts/possible timeouts, generic losses, and unrecognized
+Unique Chess.com game URLs and serialized database imports make retries and
+overlapping workflow invocations safe. Aborted/abandoned source results are
+skipped; clear checkmate outcomes are approved automatically; draws,
+resignations, timeouts/possible timeouts, generic losses, and unrecognized
 result codes wait in the review queue. Only approved games affect ratings.
 
 For this project, the daily import migration and GitHub Actions secrets are
 already configured, and the first manual sync completed as described above.
-Use **Actions → Daily Chess.com league sync → Run workflow** to retry or
-backfill. Check each run's log for `eligibleRecordsSeen`, `uniqueGamesSubmitted`,
-and the database `inserted`, `pending`, and `conflicts` counts. Investigate a
-failed run or any conflict before relying on its data. A zero-game successful
-run means only that no eligible games were submitted by that run; it is not
-evidence that the full school league workflow or admin review interface is
-ready.
+Apply the frequent-sync migration before expecting recurring polls to import
+new games.
+Use **Actions → Chess.com league sync → Run workflow** to retry or
+backfill. Check each run's log for `archiveGamesSeen`, `eligibleRecordsSeen`,
+`excludedGames`, `uniqueGamesSubmitted`, and the database `inserted`,
+`pending`, and `conflicts` counts. Investigate a failed run or any conflict
+before relying on its data. A zero-game successful run means only that no
+eligible games were submitted by that run; it is not evidence that the full
+school league workflow or admin review interface is ready.

@@ -50,9 +50,11 @@ into the website yet.
 
 - Admin sign-in, provisioning the first admin account, and a review interface.
   The RPC checks that a reviewer is an authenticated league admin.
-- Apply the new daily import migration and add GitHub Actions secrets, then
-  enable the prepared workflow. The workflow checks the 16:00 London window
-  across the BST/GMT UTC change and calls a transactional database import RPC.
+- Apply the daily import and frequent-sync migrations and add GitHub Actions
+  secrets, then enable the prepared workflow. It polls the current archive
+  month every five minutes, backfills all months daily, and calls a
+  transactional database import RPC. Actual publication timing depends on
+  GitHub Actions and Chess.com.
 - A verified Chess.com response contract and result-code mapping before
   enabling automatic imports. See the project README/planning conversation
   for API questions to check against live documentation and sample responses.

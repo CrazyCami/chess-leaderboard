@@ -1,29 +1,32 @@
-name: Daily Chess.com league sync
+name: Chess.com league sync
 
 on:
   schedule:
-    # 16:00 Europe/London is 15:00 UTC in BST and 16:00 UTC in GMT.
-    - cron: "0 15,16 * * *"
+    # GitHub Actions schedule cadence is UTC-based and may be delayed.
+    - cron: "*/5 * * * *"
+    # Recheck the full history daily for games Chess.com publishes late.
+    - cron: "18 2 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: daily-chesscom-sync
+  group: ${{ github.event.schedule == '18 2 * * *' && 'chesscom-full-backfill' || 'chesscom-recent-sync' }}
   cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Import eligible Chess.com games
+      - name: Import newly published Chess.com games
         env:
+          GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: node scripts/daily-chesscom-sync.mjs
