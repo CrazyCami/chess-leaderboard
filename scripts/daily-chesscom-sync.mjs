@@ -1,13 +1,9 @@
-const london = new Intl.DateTimeFormat("en-GB", {
+const londonDate = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/London",
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
-});
-const londonParts = Object.fromEntries(
-  london.formatToParts(new Date()).map(({ type, value }) => [type, value]),
-);
-const londonDate = `${londonParts.year}-${londonParts.month}-${londonParts.day}`;
+}).format(new Date());
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const secretKey = process.env.SUPABASE_SECRET_KEY;
@@ -21,8 +17,16 @@ const FULL_BACKFILL_SCHEDULE = "18 2 * * *";
 const fullBackfill = process.env.GITHUB_EVENT_NAME === "workflow_dispatch"
   || process.env.GITHUB_EVENT_SCHEDULE === FULL_BACKFILL_SCHEDULE;
 const headers = {
-  "User-Agent": "SchoolChessLeague/1.0 (daily sync; contact league administrator)",
+  "User-Agent": "SchoolChessLeague/1.0 (scheduled sync; contact league administrator)",
 };
+
+class ChessComHttpError extends Error {
+  constructor(status, url) {
+    super(`Chess.com returned HTTP ${status} for ${url}`);
+    this.name = "ChessComHttpError";
+    this.status = status;
+  }
+}
 
 async function getJson(url) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -39,7 +43,7 @@ async function getJson(url) {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
       continue;
     }
-    throw new Error(`Chess.com returned HTTP ${response.status} for ${url}`);
+    throw new ChessComHttpError(response.status, url);
   }
   throw new Error(`Chess.com remained unavailable after retries: ${url}`);
 }
@@ -52,9 +56,9 @@ function timeControlIsTenZero(value) {
 const drawCodes = new Set([
   "agreed", "repetition", "stalemate", "insufficient", "50move", "timevsinsufficient",
 ]);
-const losingCodes = new Set(["checkmated", "resigned", "timeout", "lose"]);
+const losingCodes = new Set(["checkmated", "resigned", "timeout", "lose", "abandoned"]);
 const manualReviewCodes = new Set([
-  ...drawCodes, "resigned", "timeout", "lose", "timevsinsufficient",
+  ...drawCodes, "timeout", "lose", "timevsinsufficient",
 ]);
 
 function normalizeGame(game, userToPlayer) {
@@ -85,8 +89,9 @@ function normalizeGame(game, userToPlayer) {
 
   const whiteResult = typeof game.white?.result === "string" ? game.white.result.trim().toLowerCase() : "";
   const blackResult = typeof game.black?.result === "string" ? game.black.result.trim().toLowerCase() : "";
-  if ([whiteResult, blackResult].some((result) => result === "abandoned" || result === "aborted")) {
-    return { game: null, reason: "abandoned_or_aborted" };
+  // "aborted" games never started; "abandoned" means a player walked away and forfeited.
+  if ([whiteResult, blackResult].some((result) => result === "aborted")) {
+    return { game: null, reason: "aborted" };
   }
 
   let result = null;
@@ -144,13 +149,24 @@ const gamesByUrl = new Map();
 let gamesSeen = 0;
 let archiveGamesSeen = 0;
 const excludedGames = {};
+let playersChecked = 0;
+const playersWithUnavailableArchives = [];
 
 // Frequent polls scan the current month. A daily full backfill catches late
 // publications in older archives without repeatedly fetching all history.
 for (const player of players) {
-  const archiveIndex = await getJson(`${API_ROOT}/player/${encodeURIComponent(player.chesscom_username)}/games/archives`);
+  let archiveIndex;
+  try {
+    archiveIndex = await getJson(`${API_ROOT}/player/${encodeURIComponent(player.chesscom_username)}/games/archives`);
+    playersChecked += 1;
+  } catch (error) {
+    if (!(error instanceof ChessComHttpError) || error.status !== 404) throw error;
+    playersWithUnavailableArchives.push(player.chesscom_username);
+    console.warn(`Chess.com returned 404 for ${player.chesscom_username}'s archives; skipping this player's archive. Check the username and public archive availability.`);
+    continue;
+  }
   if (!archiveIndex || !Array.isArray(archiveIndex.archives)) {
-    throw new Error(`Chess.com returned an invalid archive index for a roster player.`);
+    throw new Error(`Chess.com returned an invalid archive index for ${player.chesscom_username}.`);
   }
   const archives = archiveIndex.archives;
   for (const archiveUrl of archives) {
@@ -185,7 +201,7 @@ const result = await supabase("rpc/import_chesscom_games", {
   method: "POST",
   body: JSON.stringify({
     p_sync_date: londonDate,
-    p_players_checked: players.length,
+    p_players_checked: playersChecked,
     p_games_seen: gamesSeen,
     p_games: [...gamesByUrl.values()],
   }),
@@ -193,9 +209,10 @@ const result = await supabase("rpc/import_chesscom_games", {
 console.log(JSON.stringify({
   syncDate: londonDate,
   syncType: fullBackfill ? "full_backfill" : "recent_month",
-  playersChecked: players.length,
+  playersChecked,
   playersWithoutChessComUsername,
   archiveGamesSeen,
+  playersWithUnavailableArchives,
   eligibleRecordsSeen: gamesSeen,
   uniqueGamesSubmitted: gamesByUrl.size,
   excludedGames,

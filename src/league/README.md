@@ -9,7 +9,7 @@ currently has no games.
 ## Current rules in code
 
 - Every registered player starts at 1000.
-- The default K-factor is 32. K controls how much a rating moves after a game;
+- The default K-factor is 50. K controls how much a rating moves after a game;
   the settings are passed in, so the team can change it later.
 - `elo.ts` uses the standard Elo expected-score equation. It does not round
   stored values. The UI can choose how many decimal places to display.
@@ -27,9 +27,12 @@ currently has no games.
 ## Import and review behavior
 
 `parseChessComResult` maps only result pairs the league currently recognizes.
-Clear checkmate results can be auto-approved. Draws, resignations, timeout or
-possible-timeout codes, generic losses, and unknown result pairs remain pending
-for human review. Abandoned/aborted games are ignored entirely.
+Clear checkmate and resignation results can be auto-approved. For a resignation,
+the player with the `resigned` result loses and their opponent's `win` determines
+the winner. Draws, timeout or possible-timeout codes, generic losses, and unknown
+result pairs remain pending for human review. An abandoned game counts as a
+loss for the player who walked away, like a resignation. Aborted games (ended
+before play began) are ignored entirely.
 
 `mergeImportedGames` uses the Chess.com game URL as the stable source identity.
 An identical re-import is a no-op. If a previously seen URL comes back with

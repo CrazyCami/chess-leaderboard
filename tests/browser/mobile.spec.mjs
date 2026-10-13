@@ -51,6 +51,7 @@ test("admin can sign in and tap through the mobile review queue", async ({ page 
   await page.route(/\/rest\/v1\/players\?select=id,display_name$/, (route) => route.fulfill({
     json: [{ id: "white-player", display_name: "Alex Example" }, { id: "black-player", display_name: "Jamie Example" }],
   }));
+  await page.route(`${supabase}/rest/v1/admin_decisions?**`, (route) => route.fulfill({ json: [] }));
   await page.route(`${supabase}/rest/v1/games?**`, (route) => route.fulfill({
     json: [{
       id: "mobile-game",

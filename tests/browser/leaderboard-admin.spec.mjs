@@ -111,6 +111,7 @@ test("admin signs in, verifies role, records an approval, and refreshes the queu
   await page.route(/\/rest\/v1\/players\?select=id,display_name$/, (route) => route.fulfill({
     json: [{ id: "alice", display_name: "Ari Example" }, { id: "bob", display_name: "Bo Example" }],
   }));
+  await page.route(`${supabase}/rest/v1/admin_decisions?**`, (route) => route.fulfill({ json: [] }));
   await page.route(`${supabase}/rest/v1/games?**`, (route) => {
     return route.fulfill({
       json: games.filter((game) => !resolvedIds.has(game.id)),

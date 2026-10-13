@@ -32,11 +32,30 @@ successfully applied to the hosted project.
    the three-games-per-pair rolling 12-hour rating limit in both imports and
    admin-triggered rating replays. Until it is applied, hosted ratings do not
    enforce this limit.
-7. Apply `migrations/20261013162800_allow_frequent_chesscom_sync.sql` once to
-   allow repeated Chess.com imports on the same London date. The scheduled
-   GitHub workflow polls the current archive month every five minutes and
-   backfills all months daily. GitHub and Chess.com do not guarantee that a
-   game will appear on the website within exactly five minutes.
+7. Apply `migrations/20261012130000_admin_review_history_undo.sql` once to save
+   before/after snapshots for new review decisions and enable the admin-only
+   history and undo RPC. Older decisions remain visible but cannot be undone
+   automatically because they have no saved before-state.
+8. Apply `migrations/20261012140000_allow_same_day_import_backfills.sql` once
+   so successful syncs can be safely repeated on the same London date and
+   import games that Chess.com publishes late.
+9. Apply `migrations/20261012150000_update_roster_alek_add_pablo.sql` once to
+   update Alex's display name to Alek and add Pablo (`michi33m`) to the roster.
+10. Apply `migrations/20261012160000_add_teddy.sql` once to add Teddy
+    (`MediocreChessSkill`) to the roster.
+11. Apply `migrations/20261012170000_custom_underdog_elo.sql`. It installs the
+    eligible-game helper and introduces the v2 formula in migration history.
+    It is superseded by the next migration.
+12. Apply `migrations/20261012171000_restore_standard_elo.sql` to restore the
+    standard Elo formula with K=50. It recalculates all existing
+    approved eligible games. It preserves prior v2 replay records and their
+    settings as immutable audit history.
+13. For this project, the organizer has also manually applied
+    `migrations/20261013162800_allow_frequent_chesscom_sync.sql`. It allows
+    repeat imports on one London date. The scheduled GitHub workflow polls the
+    current archive month every five minutes and backfills all months daily.
+    GitHub and Chess.com do not guarantee that games appear within exactly
+    five minutes.
 
 Keep database passwords and Supabase secret/service keys out of this
 repository and out of browser code. The roster seed contains only the player
@@ -68,14 +87,20 @@ names and usernames already provided for this league; it does not add games.
   an admin/service key to browser code.
 - The review RPC accepts a UUID `request_id`. Reuse that same ID when retrying
   the same decision, and create a new ID for a new decision.
+- The review page shows the latest 100 decisions to admins. An admin can undo
+  only their own most recent decision for a game, with a required reason.
+  Undo appends an immutable audit record, restores the saved game state, and
+  writes a new full rating replay; it never deletes the original decision.
 - Each new review decision creates a complete rating replay. Only approved
   standard chess games with a 600-second base and zero increment (`600` or
   `600+0`, with optional surrounding whitespace) count, subject to the
   three-games-per-pair rolling 12-hour cap. The cap is enforced in the
   database replay, not by Chess.com, so it doesn't prevent excess play.
-- Browser clients still cannot write league records directly. The importer,
-  workflow, import migration, and Actions secrets are configured. Apply the
-  frequent-sync migration before enabling the five-minute polling workflow.
+- Current Elo formula is `standard-elo-v1` with K=50 and starting rating 1000.
+  Historical replay records retain the formula and settings used when they
+  were created.
+- Browser clients still cannot write league records directly. The frequent
+  importer, workflow, import migrations, and Actions secrets are configured.
   A manual workflow run on 10 October 2026 completed successfully, checked 9
   roster accounts, and imported 0 games. This verifies that run reached the
   database RPC; it does not verify a scheduled run or prove that game data has

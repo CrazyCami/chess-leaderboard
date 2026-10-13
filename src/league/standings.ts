@@ -46,9 +46,6 @@ const DEFAULT_SETTINGS: LeagueSettings = {
   kFactor: DEFAULT_K_FACTOR,
 };
 
-const MAX_PAIR_GAMES = 3;
-const PAIR_GAME_WINDOW_MS = 12 * 60 * 60 * 1000;
-
 /**
  * Rebuild all current ratings from approved, eligible games in a stable order.
  * Replaying from the beginning makes late-arriving games deterministic and
@@ -100,27 +97,8 @@ export function replayRatings(
     return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
   });
 
-  const countedTimesByPair = new Map<string, number[]>();
-  const gamesWithinPairLimit: LeagueGame[] = [];
-  for (const game of eligibleGames) {
-    const pairKey = [game.whitePlayerId, game.blackPlayerId].sort().join("\u0000");
-    const playedAt = Date.parse(game.playedAt);
-    const recentTimes = (countedTimesByPair.get(pairKey) ?? [])
-      .filter((previousTime) => previousTime > playedAt - PAIR_GAME_WINDOW_MS);
-
-    if (recentTimes.length >= MAX_PAIR_GAMES) {
-      excludedGames.push({ gameId: game.id, reason: "pair_game_limit" });
-      countedTimesByPair.set(pairKey, recentTimes);
-      continue;
-    }
-
-    recentTimes.push(playedAt);
-    countedTimesByPair.set(pairKey, recentTimes);
-    gamesWithinPairLimit.push(game);
-  }
-
   const history: RatingEvent[] = [];
-  for (const game of gamesWithinPairLimit) {
+  for (const game of eligibleGames) {
     const white = standingsById.get(game.whitePlayerId)!;
     const black = standingsById.get(game.blackPlayerId)!;
     const result = game.result!;

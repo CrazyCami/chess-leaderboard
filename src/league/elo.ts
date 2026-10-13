@@ -18,7 +18,7 @@ export interface EloChange {
 }
 
 export const INITIAL_RATING = 1000;
-export const DEFAULT_K_FACTOR = 32;
+export const DEFAULT_K_FACTOR = 50;
 export const ELO_FORMULA_VERSION = "standard-elo-v1";
 
 const DEFAULT_SETTINGS: EloSettings = {

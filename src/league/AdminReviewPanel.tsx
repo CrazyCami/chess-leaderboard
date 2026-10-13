@@ -24,6 +24,29 @@ type PendingGame = {
   rules: string;
 };
 type PlayerName = { id: string; display_name: string };
+type AdminDecision = {
+  id: string;
+  game_id: string;
+  admin_user_id: string;
+  action: AdminAction;
+  decided_at: string;
+  reason: string;
+  corrected_result: GameResult | null;
+  result_before: GameResult | null;
+  review_status_before: "pending" | "approved" | "rejected" | null;
+  review_note_before: string | null;
+  result_after: GameResult | null;
+  review_status_after: "pending" | "approved" | "rejected" | null;
+  review_note_after: string | null;
+  reverses_decision_id: string | null;
+};
+type HistoryGame = {
+  id: string;
+  white_player_id: string;
+  black_player_id: string;
+  source_game_url: string | null;
+  played_at: string;
+};
 type WorkflowState = "checking" | "signed_out" | "denied" | "ready";
 
 const SESSION_KEY = "school-chess-league-admin-session";
@@ -75,6 +98,12 @@ function messageFromBody(body: string, status: number): string {
   return `Supabase returned HTTP ${status}.`;
 }
 
+function resultLabel(result: GameResult | null): string {
+  if (result === "white_win") return "White win";
+  if (result === "black_win") return "Black win";
+  return result === "draw" ? "Draw" : "Unknown result";
+}
+
 async function request(path: string, accessToken?: string, init: RequestInit = {}): Promise<unknown> {
   if (!projectUrl || !publishableKey) {
     throw new Error("Set the Supabase project URL and publishable key before using admin review.");
@@ -99,11 +128,15 @@ export function AdminReviewPanel() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [games, setGames] = useState<PendingGame[]>([]);
   const [players, setPlayers] = useState<Map<string, string>>(new Map());
+  const [history, setHistory] = useState<AdminDecision[]>([]);
+  const [historyGames, setHistoryGames] = useState<Map<string, HistoryGame>>(new Map());
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [corrections, setCorrections] = useState<Record<string, GameResult | "">>({});
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [busyGameId, setBusyGameId] = useState<string | null>(null);
+  const [busyDecisionId, setBusyDecisionId] = useState<string | null>(null);
+  const [undoReasons, setUndoReasons] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -130,7 +163,7 @@ export function AdminReviewPanel() {
 
   const loadQueue = useCallback(async (current: AuthSession) => {
     const activeSession = await getFreshSession(current);
-    const [rawGames, rawPlayers] = await Promise.all([
+    const [rawGames, rawPlayers, rawHistory] = await Promise.all([
       request(
         "/rest/v1/games?select=id,source,source_game_url,white_player_id,black_player_id,result,white_source_result,black_source_result,played_at,time_control,rules&review_status=eq.pending&order=played_at.asc,id.asc",
         activeSession.access_token,
@@ -139,12 +172,35 @@ export function AdminReviewPanel() {
         "/rest/v1/players?select=id,display_name",
         activeSession.access_token,
       ),
+      request(
+        "/rest/v1/admin_decisions?select=id,game_id,admin_user_id,action,decided_at,reason,corrected_result,result_before,review_status_before,review_note_before,result_after,review_status_after,review_note_after,reverses_decision_id&order=decided_at.desc,id.desc&limit=100",
+        activeSession.access_token,
+      ),
     ]);
-    if (!Array.isArray(rawGames) || !Array.isArray(rawPlayers)) {
+    if (!Array.isArray(rawGames) || !Array.isArray(rawPlayers) || !Array.isArray(rawHistory)) {
       throw new Error("Supabase returned an invalid admin review response.");
+    }
+    const decisions = rawHistory as AdminDecision[];
+    const gameIds = [...new Set(decisions.map((decision) => decision.game_id))];
+    let gameRows: HistoryGame[] = [];
+    if (gameIds.length > 0) {
+      const filters = new URLSearchParams({
+        select: "id,white_player_id,black_player_id,source_game_url,played_at",
+        id: `in.(${gameIds.join(",")})`,
+      });
+      const rawHistoryGames = await request(
+        `/rest/v1/games?${filters.toString()}`,
+        activeSession.access_token,
+      );
+      if (!Array.isArray(rawHistoryGames)) {
+        throw new Error("Supabase returned invalid games for the review history.");
+      }
+      gameRows = rawHistoryGames as HistoryGame[];
     }
     setGames(rawGames as PendingGame[]);
     setPlayers(new Map((rawPlayers as PlayerName[]).map((player) => [player.id, player.display_name])));
+    setHistory(decisions);
+    setHistoryGames(new Map(gameRows.map((game) => [game.id, game])));
     setWorkflowState("ready");
     setError(null);
   }, [getFreshSession]);
@@ -241,6 +297,35 @@ export function AdminReviewPanel() {
       setError(cause instanceof Error ? cause.message : "Could not record the decision.");
     } finally {
       setBusyGameId(null);
+    }
+  }
+
+  async function undoDecision(decision: AdminDecision) {
+    if (!session) return;
+    const reason = undoReasons[decision.id]?.trim();
+    if (!reason) {
+      setError("Enter a reason before undoing this decision.");
+      return;
+    }
+    setBusyDecisionId(decision.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const activeSession = await getFreshSession(session);
+      await request("/rest/v1/rpc/undo_league_game_decision", activeSession.access_token, {
+        method: "POST",
+        body: JSON.stringify({
+          p_request_id: crypto.randomUUID(),
+          p_decision_id: decision.id,
+          p_reason: reason,
+        }),
+      });
+      setNotice("Decision undone and recorded. Standings have been recalculated.");
+      await loadQueue(activeSession);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not undo the decision.");
+    } finally {
+      setBusyDecisionId(null);
     }
   }
 
@@ -344,6 +429,73 @@ export function AdminReviewPanel() {
           ))}
         </ul>
       )}
+      <section className="admin-history" aria-labelledby="history-heading">
+        <h2 id="history-heading">Decision history</h2>
+        {history.length === 0 ? (
+          <p className="connection-message">No admin decisions have been recorded yet.</p>
+        ) : (
+          <ol className="history-list">
+            {history.map((decision, index) => {
+              const game = historyGames.get(decision.game_id);
+              const isUndo = decision.reverses_decision_id !== null;
+              const isLatestForGame = !history.slice(0, index).some((later) => later.game_id === decision.game_id);
+              const canUndo = !isUndo
+                && decision.admin_user_id === session?.user.id
+                && isLatestForGame
+                && decision.review_status_before !== null
+                && decision.review_status_after !== null;
+              const whiteName = game ? players.get(game.white_player_id) ?? game.white_player_id : "Unknown player";
+              const blackName = game ? players.get(game.black_player_id) ?? game.black_player_id : "Unknown player";
+              const actionLabel = decision.action.replaceAll("_", " ");
+
+              return (
+                <li className="history-item" key={decision.id}>
+                  <div className="history-heading">
+                    <h3>{isUndo ? `Undo: ${actionLabel}` : actionLabel}</h3>
+                    <time dateTime={decision.decided_at}>{new Date(decision.decided_at).toLocaleString()}</time>
+                  </div>
+                  <p>
+                    {whiteName} vs. {blackName}
+                    {game ? ` · ${new Date(game.played_at).toLocaleString()}` : ""}
+                  </p>
+                  <p>{decision.reason}</p>
+                  {decision.review_status_before && decision.review_status_after && (
+                    <p>
+                      {resultLabel(decision.result_before)} ({decision.review_status_before})
+                      {" → "}
+                      {resultLabel(decision.result_after)} ({decision.review_status_after})
+                    </p>
+                  )}
+                  {game?.source_game_url && <a href={game.source_game_url} target="_blank" rel="noreferrer">Open source game</a>}
+                  {isUndo && decision.reverses_decision_id && (
+                    <p>Reversed decision ID: <code>{decision.reverses_decision_id}</code></p>
+                  )}
+                  {canUndo && (
+                    <div className="history-undo">
+                      <label htmlFor={`undo-reason-${decision.id}`}>Reason for undo (required)</label>
+                      <textarea
+                        id={`undo-reason-${decision.id}`}
+                        rows={2}
+                        maxLength={1000}
+                        value={undoReasons[decision.id] ?? ""}
+                        onChange={(event) => setUndoReasons((current) => ({ ...current, [decision.id]: event.target.value }))}
+                      />
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={busyDecisionId === decision.id || !undoReasons[decision.id]?.trim()}
+                        onClick={() => void undoDecision(decision)}
+                      >
+                        Undo my decision
+                      </button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
     </section>
   );
 }

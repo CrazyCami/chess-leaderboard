@@ -12,6 +12,26 @@ A Next.js and TypeScript school year-group chess league. The leaderboard can rea
 
 The public page reads standings from Supabase. Admin sign-in and the review interface are not built yet. Never use a Supabase secret key in a `NEXT_PUBLIC_` variable. Keep `.env.local` private; Git ignores it.
 
+## Website interface
+
+The public page (`app/page.tsx`, rendered by `src/league/LeagueDashboard.tsx`)
+reads only public, row-level-secured data with the publishable key:
+
+- `leaderboard` view for the standings table (rank, league Elo, W–D–L record,
+  games). Players with no rated games show a blank rank.
+- `rating_replays` (latest generation), `rating_events` and approved `games`
+  for the per-player form and trend columns, the rating history chart, the
+  recent games scoresheet and the "standings as of" time.
+- `league_settings` for the starting rating and K-factor shown in the facts
+  row.
+
+If the history queries fail the standings still render; the chart and game
+panels show a quiet message instead. Pure display helpers live in
+`src/league/league-view.ts` and are covered by `npm test`. The chart assigns
+each player a fixed colour slot (up to eight shown at once) so colours never
+change when other players are hidden. The page follows the system light/dark
+setting.
+
 ## Team roles
 
 - Person 1 owns the website interface and visual design.
@@ -31,30 +51,30 @@ counted game; changing a rule later can change standings.
   Europe/London on 10 October 2026. Games must have two different players, a
   recognized result, and a valid played-at time.
 - **Ratings:** every player starts at 1000. Use standard Elo
-  (`standard-elo-v1`) with K-factor 32. Ratings are unrounded in storage and
+  (`standard-elo-v1`) with K-factor 50. Ratings are unrounded in storage and
   replay, and displayed to the nearest whole point. Rankings use the unrounded
   rating. Chess.com ratings do not affect league ratings. Games are replayed
   chronologically, with game ID as the stable tie-breaker; late approvals can
   therefore change later results.
 - **Outcomes:** Elo uses 1 for a win, 0.5 for a draw, and 0 for a loss. The
-  opponent receives the complementary score. An abandoned/aborted game is
-  excluded entirely: it is not a zero-score loss, creates no rating event, and
-  changes neither player's rating. A game is not counted until approved.
-- **Pair limit:** At most three otherwise eligible, approved games between the
-  same two players count in any rolling 12-hour window, regardless of which
-  player had white. Games beyond that limit remain in the game/review records
-  but create no rating events; an excluded game does not consume a later slot.
-  Games exactly 12 hours apart do not overlap. This limits league rating credit
-  only; it does not prevent players from starting games on Chess.com.
+  opponent receives the complementary score. An abandoned game (a player left a
+  live game) is a loss for that player. An aborted game (ended before play
+  began) is excluded entirely: it creates no rating event and changes neither
+  player's rating. A game is not counted until approved.
+- **Game counting:** Every approved game that meets the league's eligibility
+  rules counts toward both players' ratings, including multiple games between
+  the same pair in a short period.
 - **League scope:** there is no separate season reset or inactivity penalty in
   the current implementation. Do not promise either until the school has
   agreed a policy and it has been implemented.
 
 ### Questionable-game approval
 
-The import automatically approves only a recognized decisive checkmate.
-Draws, resignations, timeouts, generic losses, uncertain or unknown result
-codes are pending. Abandoned/aborted games are ignored. Pending and rejected
+The import automatically approves recognized decisive checkmate and
+resignation results. The player whose result is `resigned` loses; their
+opponent's `win` records the winner. Draws, timeouts, generic losses, uncertain
+or unknown result codes remain pending for review. An abandoned game is a loss
+for the player who walked away; aborted games are ignored. Pending and rejected
 games do not affect the leaderboard.
 
 1. A designated league admin checks the source game, both players, date, time
@@ -88,20 +108,21 @@ the owner should update this list with the result and date when it is done.
 
 | Area | Check | Expected result | Status |
 | --- | --- | --- | --- |
-| Ratings | White wins from equal 1000 ratings, K=32 | White 1016, Black 984 | Unit test passed locally; CI pending |
-| Ratings | Black wins from equal 1000 ratings, K=32 | White 984, Black 1016 | Unit test passed locally; CI pending |
-| Ratings | Draw from equal 1000 ratings, K=32 | Both remain 1000 | Unit test passed locally; CI pending |
+| Ratings | White wins from equal 1000 ratings, K=50 | White 1025, Black 975 | Not re-verified after K update |
+| Ratings | Black wins from equal 1000 ratings, K=50 | White 975, Black 1025 | Not re-verified after K update |
+| Ratings | Draw from equal 1000 ratings, K=50 | Both remain 1000 | Not re-verified after K update |
 | Results | Recognized checkmate win/loss pair | Correct winner; eligible for auto-approval | Unit test passed locally; CI pending |
 | Results | Agreed draw, stalemate, repetition, insufficient material, 50-move draw | Draw; pending admin review | Unit tests passed locally; CI pending |
-| Results | Resignation or timeout with a winner | Correct winner; pending admin review | Unit tests passed locally; CI pending |
-| Results | Abandoned/aborted game | Excluded from Elo; no rating event or rating change for either player | Unit test passed locally; CI pending |
+| Results | Resignation and opponent win | Resigning player loses; result is auto-approved and counted in Elo | Unit test passed locally |
+| Results | Timeout with a winner | Correct winner; pending admin review | Unit tests passed locally; CI pending |
+| Results | Abandoned game | Loss for the player who abandoned; approved automatically | Unit test passed locally; CI pending |
+| Results | Aborted game | Excluded from Elo; no rating event or rating change for either player | Unit test passed locally; CI pending |
 | Results | Unknown, conflicting, or malformed result pair | Pending; cannot approve without correction | Core unknown/conflicting cases passed locally; malformed payload case still needs a test |
 | Eligibility | Variant, time control, date, player, or timestamp outside league rules | Excluded from ratings | Unit tests passed locally; CI pending |
 | Review | Sign in at `/review`, approve, reject, or correct a pending game | Audit decision recorded; only approved eligible games affect standings | Admin UI mock browser test passed; staging SQL integration test not run |
 | Review | Retry same decision ID and payload; then retry with changed payload | First retry is a no-op; changed payload is rejected | Unit test passed locally; database SQL test awaits staging |
 | Replay | Approve a late-played game and replay; repeat an import | Chronological standings are correct; duplicate import adds no game | Unit tests passed locally; CI pending |
-| Pair limit | Four approved games for one pair inside 12 hours, including reversed colours | First three count; fourth has no rating events | Unit tests added; database integration check awaits applying the migration |
-| Pair limit | Same pair plays at the exact 12-hour boundary or after a counted game expires | Expired games no longer use a slot | Unit tests added; database integration check awaits applying the migration |
+| Replay | Five approved eligible games for one pair inside 12 hours, including reversed colours | All five games create rating events and update both ratings | Unit test passed locally; database integration check awaits applying the migration |
 | Privacy | Public view and unauthenticated page | Only school-approved public data; no pending review/admin data | Not run |
 | Mobile | 320px and 390px viewport, portrait | No page-level horizontal overflow | Playwright passed locally; physical devices still need checking |
 | Desktop | 1280px viewport | Main headings visible; no page-level horizontal overflow | Playwright passed locally; physical computer still needs checking |
@@ -157,7 +178,7 @@ ready while any P0 item remains blocked.
 ## Frequent Chess.com import setup (Person 2)
 
 The scheduled workflow is in `.github/workflows/daily-chesscom-sync.yml` and
-its server-side fetcher is `scripts/daily-chesscom-sync.mjs`. It polls the
+server-side fetcher is `scripts/daily-chesscom-sync.mjs`. It polls the
 Chess.com Published Data API for active roster accounts, uses only standard
 chess with exactly 600 seconds and zero increment, and considers game end
 times from 10 October 2026 00:00 Europe/London onward. It scans the current
@@ -185,9 +206,11 @@ using the workflow:
    Supabase SQL Editor. This exposes a narrow RPC to the backend role, stores
    import conflicts, and rebuilds a complete chronological rating replay when
    clear approved games are added.
-2. Run `supabase/migrations/20261013162800_allow_frequent_chesscom_sync.sql`
-   once. This removes the one-success-per-day lock so repeat polls can discover
-   new games throughout the day; unique Chess.com URLs keep re-imports safe.
+2. Apply the same-day import migrations:
+   `supabase/migrations/20261012140000_allow_frequent_chesscom_sync.sql` and
+   `supabase/migrations/20261012140000_allow_same_day_import_backfills.sql`.
+   They remove the daily import restriction so repeat polls can discover late
+   games; unique Chess.com URLs keep re-imports safe.
 3. In GitHub, open the repository's **Settings → Secrets and variables →
    Actions**, then create `SUPABASE_URL` (the project URL) and
    `SUPABASE_SECRET_KEY` (the server-only Supabase secret key). Do not use the
@@ -206,12 +229,11 @@ result codes wait in the review queue. Only approved games affect ratings.
 
 For this project, the daily import migration and GitHub Actions secrets are
 already configured, and the first manual sync completed as described above.
-Apply the frequent-sync migration before expecting recurring polls to import
-new games.
-Use **Actions → Chess.com league sync → Run workflow** to retry or
-backfill. Check each run's log for `archiveGamesSeen`, `eligibleRecordsSeen`,
-`excludedGames`, `uniqueGamesSubmitted`, and the database `inserted`,
-`pending`, and `conflicts` counts. Investigate a failed run or any conflict
-before relying on its data. A zero-game successful run means only that no
-eligible games were submitted by that run; it is not evidence that the full
-school league workflow or admin review interface is ready.
+The organizer manually ran
+`20261013162800_allow_frequent_chesscom_sync.sql` in Supabase; keep that
+repeat-import database change when deploying. Use **Actions → Chess.com league
+sync → Run workflow** to retry or backfill. Check each run's log for
+`archiveGamesSeen`, `eligibleRecordsSeen`, `excludedGames`,
+`uniqueGamesSubmitted`, and database `inserted`, `pending`, and `conflicts`
+counts. A successful run with zero eligible games means only that it submitted
+no games on that poll; it does not prove no recent eligible games exist.
