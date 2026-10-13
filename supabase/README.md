@@ -52,10 +52,32 @@ successfully applied to the hosted project.
     settings as immutable audit history.
 13. For this project, the organizer has also manually applied
     `migrations/20261013162800_allow_frequent_chesscom_sync.sql`. It allows
-    repeat imports on one London date. The scheduled GitHub workflow polls the
-    current archive month every five minutes and backfills all months daily.
-    GitHub and Chess.com do not guarantee that games appear within exactly
-    five minutes.
+    repeat imports on one London date.
+14. Create a fine-grained GitHub token restricted to `CrazyCami/chess-leaderboard`
+    with Actions read/write permission. In Supabase Dashboard, add it in
+    Database → Vault as `github_actions_dispatch_token`, then apply
+    `migrations/20261013190000_schedule_chesscom_sync.sql`. Supabase Cron will
+    dispatch a current-month scan every five minutes and a full archive
+    backfill daily; GitHub Actions performs the existing import against
+    Supabase. Do not paste the token into the repository or browser code.
+
+Check the scheduler and latest GitHub API responses in the Supabase SQL Editor:
+
+```sql
+select jobname, schedule, active
+from cron.job
+where jobname like 'chesscom-sync-%'
+order by jobname;
+
+select created, status_code, error_msg, content
+from net._http_response
+order by created desc
+limit 10;
+```
+
+GitHub should return HTTP 204 for each workflow dispatch. A 401/403 response
+usually means the Vault token is missing, expired, or lacks Actions write
+permission.
 
 Keep database passwords and Supabase secret/service keys out of this
 repository and out of browser code. The roster seed contains only the player

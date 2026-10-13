@@ -177,19 +177,19 @@ ready while any P0 item remains blocked.
 
 ## Frequent Chess.com import setup (Person 2)
 
-The scheduled workflow is in `.github/workflows/daily-chesscom-sync.yml` and
-server-side fetcher is `scripts/daily-chesscom-sync.mjs`. It polls the
+The workflow is in `.github/workflows/daily-chesscom-sync.yml` and the
+server-side fetcher is `scripts/daily-chesscom-sync.mjs`. Supabase Cron
+dispatches the workflow every five minutes to poll the
 Chess.com Published Data API for active roster accounts, uses only standard
 chess with exactly 600 seconds and zero increment, and considers game end
-times from 10 October 2026 00:00 Europe/London onward. It scans the current
-month every five minutes (at minutes 1, 6, 11, and so on) and does a full
-archive backfill daily to catch late-published games. The open leaderboard
-fetches updated standings once a minute. GitHub Actions may delay or skip
-scheduled runs, and Chess.com
-controls when games appear in its archives, so five minutes is a best-effort
-target, not a guaranteed publication time. Each run reports archive games
-seen, eligible candidates, exclusion reasons, and database insert/pending/
-conflict counts. Chess.com ratings are never read or used.
+times from 10 October 2026 00:00 Europe/London onward. Frequent runs scan the
+current month; a daily full archive backfill catches late-published games. The
+open leaderboard fetches updated standings once a minute. Supabase Cron
+dispatches the worker, but GitHub Actions and Chess.com can still delay game
+publication, so five minutes is a best-effort target, not a guarantee. Each
+run reports archive games seen, eligible candidates, exclusion reasons, and
+database insert/pending/conflict counts. Chess.com ratings are never read or
+used.
 
 The workflow and external setup have been verified by a manual GitHub Actions
 run on 10 October 2026 (`Daily Chess.com league sync`, run
@@ -218,9 +218,15 @@ using the workflow:
    publishable key for this secret and never put the secret in `.env.local`,
    `NEXT_PUBLIC_...`, or committed files. The runner sends this key only in
    the `apikey` header, as Supabase secret keys are not JWT bearer tokens.
-4. Open **Actions → Chess.com league sync → Run workflow** to perform or
-   retry a full backfill. Manual runs work at any time; scheduled runs poll the
-   current month every five minutes and backfill all archive months daily.
+4. Create a fine-grained GitHub token limited to `CrazyCami/chess-leaderboard`
+   with Actions read/write permission. In Supabase Dashboard, add it under
+   **Database → Vault** with the name `github_actions_dispatch_token`.
+5. Apply `supabase/migrations/20261013190000_schedule_chesscom_sync.sql` in
+   Supabase SQL Editor. This schedules current-month scans every five minutes
+   and a full archive backfill daily. The token stays in Supabase Vault; do not
+   put it in GitHub secrets, the website, or this repository.
+6. **Actions → Chess.com league sync → Run workflow** remains available to
+   trigger a full backfill manually when needed.
 
 Unique Chess.com game URLs and serialized database imports make retries and
 overlapping workflow invocations safe. Aborted/abandoned source results are

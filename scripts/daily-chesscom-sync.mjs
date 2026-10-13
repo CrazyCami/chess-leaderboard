@@ -13,9 +13,7 @@ if (!supabaseUrl || !secretKey) {
 
 const API_ROOT = "https://api.chess.com/pub";
 const CUTOFF = Date.parse("2026-10-09T23:00:00.000Z") / 1000;
-const FULL_BACKFILL_SCHEDULE = "18 2 * * *";
-const fullBackfill = process.env.GITHUB_EVENT_NAME === "workflow_dispatch"
-  || process.env.GITHUB_EVENT_SCHEDULE === FULL_BACKFILL_SCHEDULE;
+const fullBackfill = process.env.FULL_BACKFILL === "true";
 const headers = {
   "User-Agent": "SchoolChessLeague/1.0 (scheduled sync; contact league administrator)",
 };
