@@ -62,7 +62,10 @@ export function LeagueDashboard() {
   const configured = Boolean(projectUrl && publishableKey);
 
   useEffect(() => {
-    if (!configured) return;
+    if (!configured) {
+      setHistory({ status: "error", message: "The site is not connected to Supabase." });
+      return;
+    }
     const controller = new AbortController();
 
     async function loadLeaderboard() {
