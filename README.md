@@ -57,9 +57,10 @@ counted game; changing a rule later can change standings.
   chronologically, with game ID as the stable tie-breaker; late approvals can
   therefore change later results.
 - **Outcomes:** Elo uses 1 for a win, 0.5 for a draw, and 0 for a loss. The
-  opponent receives the complementary score. An abandoned/aborted game is
-  excluded entirely: it is not a zero-score loss, creates no rating event, and
-  changes neither player's rating. A game is not counted until approved.
+  opponent receives the complementary score. An abandoned game (a player left a
+  live game) is a loss for that player. An aborted game (ended before play
+  began) is excluded entirely: it creates no rating event and changes neither
+  player's rating. A game is not counted until approved.
 - **Game counting:** Every approved game that meets the league's eligibility
   rules counts toward both players' ratings, including multiple games between
   the same pair in a short period.
@@ -72,8 +73,9 @@ counted game; changing a rule later can change standings.
 The import automatically approves recognized decisive checkmate and
 resignation results. The player whose result is `resigned` loses; their
 opponent's `win` records the winner. Draws, timeouts, generic losses, uncertain
-or unknown result codes remain pending for review. Abandoned/aborted games are
-ignored. Pending and rejected games do not affect the leaderboard.
+or unknown result codes remain pending for review. An abandoned game is a loss
+for the player who walked away; aborted games are ignored. Pending and rejected
+games do not affect the leaderboard.
 
 1. A designated league admin checks the source game, both players, date, time
    control, variant, and result. Ask both players or a supervising staff member
@@ -113,7 +115,8 @@ the owner should update this list with the result and date when it is done.
 | Results | Agreed draw, stalemate, repetition, insufficient material, 50-move draw | Draw; pending admin review | Unit tests passed locally; CI pending |
 | Results | Resignation and opponent win | Resigning player loses; result is auto-approved and counted in Elo | Unit test passed locally |
 | Results | Timeout with a winner | Correct winner; pending admin review | Unit tests passed locally; CI pending |
-| Results | Abandoned/aborted game | Excluded from Elo; no rating event or rating change for either player | Unit test passed locally; CI pending |
+| Results | Abandoned game | Loss for the player who abandoned; approved automatically | Unit test passed locally; CI pending |
+| Results | Aborted game | Excluded from Elo; no rating event or rating change for either player | Unit test passed locally; CI pending |
 | Results | Unknown, conflicting, or malformed result pair | Pending; cannot approve without correction | Core unknown/conflicting cases passed locally; malformed payload case still needs a test |
 | Eligibility | Variant, time control, date, player, or timestamp outside league rules | Excluded from ratings | Unit tests passed locally; CI pending |
 | Review | Sign in at `/review`, approve, reject, or correct a pending game | Audit decision recorded; only approved eligible games affect standings | Admin UI mock browser test passed; staging SQL integration test not run |
@@ -214,8 +217,8 @@ using the workflow:
 Each sync scans monthly archives from October 2026 through the current month.
 Repeated polls allow cached/late-published games to be picked up. A unique
 Chess.com game URL and database locking make retries and overlapping workflow
-invocations safe. Aborted/abandoned source results are skipped; clear checkmate
-and resignation outcomes are approved automatically, with the resigning player
+invocations safe. Aborted source results are skipped; clear checkmate,
+resignation, and abandonment outcomes are approved automatically, with the resigning or abandoning player
 recorded as the loser. Draws, timeouts/possible timeouts, generic losses, and
 unrecognized result codes wait in the review queue. Only approved games affect
 ratings.

@@ -76,15 +76,18 @@ test("recognized decisive outcomes map to the correct league winner", () => {
   assert.equal(needsChessComHumanReview("resigned"), false);
 });
 
-test("draw codes are human-reviewed and abandoned games are ignored", () => {
+test("draw codes are human-reviewed, aborted games are ignored, abandoned games are losses", () => {
   for (const result of ["agreed", "repetition", "stalemate", "insufficient", "50move"]) {
     assert.equal(parseChessComResult(result, result), "draw");
     assert.equal(needsChessComHumanReview(result), true);
   }
   assert.equal(parseChessComResult("timevsinsufficient", "timevsinsufficient"), "draw");
   assert.equal(needsChessComHumanReview("timevsinsufficient"), true);
-  assert.equal(isAbortedChessComResult("abandoned"), true);
+  assert.equal(isAbortedChessComResult("abandoned"), false);
   assert.equal(isAbortedChessComResult("aborted"), true);
+  assert.equal(parseChessComResult("win", "abandoned"), "white_win");
+  assert.equal(parseChessComResult("abandoned", "win"), "black_win");
+  assert.equal(needsChessComHumanReview("abandoned"), false);
   assert.equal(isAbortedChessComResult("checkmated"), false);
 });
 
@@ -162,10 +165,12 @@ test("archive imports auto-approve checkmates and resignations but hold uncertai
   assert.equal(unknown.result, null);
   assert.equal(unknown.review_status, "pending");
 
-  assert.equal(normalizeChessComArchiveGame({
+  const abandoned = normalizeChessComArchiveGame({
     ...base,
     black: { username: "Bob", result: "abandoned" },
-  }, roster, cutoff), null);
+  }, roster, cutoff);
+  assert.equal(abandoned.result, "white_win");
+  assert.equal(abandoned.review_status, "approved");
   assert.equal(normalizeChessComArchiveGame({ ...base, time_control: "600+5" }, roster, cutoff), null);
   assert.equal(normalizeChessComArchiveGame({ ...base, rules: "chess960" }, roster, cutoff), null);
   assert.equal(normalizeChessComArchiveGame({ ...base, end_time: cutoff - 1 }, roster, cutoff), null);

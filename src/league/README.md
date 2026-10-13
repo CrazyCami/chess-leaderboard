@@ -30,8 +30,9 @@ currently has no games.
 Clear checkmate and resignation results can be auto-approved. For a resignation,
 the player with the `resigned` result loses and their opponent's `win` determines
 the winner. Draws, timeout or possible-timeout codes, generic losses, and unknown
-result pairs remain pending for human review. Abandoned/aborted games are
-ignored entirely.
+result pairs remain pending for human review. An abandoned game counts as a
+loss for the player who walked away, like a resignation. Aborted games (ended
+before play began) are ignored entirely.
 
 `mergeImportedGames` uses the Chess.com game URL as the stable source identity.
 An identical re-import is a no-op. If a previously seen URL comes back with

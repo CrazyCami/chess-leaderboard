@@ -9,7 +9,7 @@ const drawResults = new Set([
   "timevsinsufficient",
 ]);
 
-const losingResults = new Set(["checkmated", "resigned", "timeout", "lose"]);
+const losingResults = new Set(["checkmated", "resigned", "timeout", "lose", "abandoned"]);
 
 /** Result codes needing a human decision even when the winner can be inferred. */
 const humanReviewResults = new Set([
@@ -19,9 +19,13 @@ const humanReviewResults = new Set([
   "timevsinsufficient",
 ]);
 
-/** Chess.com uses these when a game was abandoned before a result; ignore it. */
+/**
+ * Chess.com uses "aborted" when a game ended before it really started, so it
+ * has no result and is ignored. "abandoned" is different: the player walked
+ * away from a live game and forfeited, so it counts as a loss like a resignation.
+ */
 export function isAbortedChessComResult(...results: string[]): boolean {
-  return results.some((result) => ["abandoned", "aborted"].includes(result.trim().toLowerCase()));
+  return results.some((result) => result.trim().toLowerCase() === "aborted");
 }
 
 /** Results needing human review even when the winner can be inferred. */
