@@ -414,6 +414,9 @@ tbody th { font-weight: 600; }
 .review-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .review-actions label { margin-left: 8px; }
 .review-actions select { width: auto; }
+.admin-sync { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; margin: 16px 0 0; border-top: 1px solid var(--line); padding-top: 18px; }
+.admin-sync h2 { margin: 0; font-size: 1.1rem; }
+.admin-sync p { margin: 4px 0 0; }
 .admin-history { margin-top: 36px; border-top: 2px solid var(--line); padding-top: 24px; }
 .history-list { display: grid; gap: 16px; margin: 16px 0 0; padding: 0; list-style: none; }
 .history-item { display: grid; gap: 10px; border-top: 1px solid var(--line); padding: 18px 0; }

@@ -60,6 +60,11 @@ successfully applied to the hosted project.
     dispatch a current-month scan every five minutes and a full archive
     backfill daily; GitHub Actions performs the existing import against
     Supabase. Do not paste the token into the repository or browser code.
+15. Apply `migrations/20261014090000_admin_request_chesscom_sync.sql`. It adds
+    the `request_chesscom_sync` RPC behind the "Refresh from Chess.com" button
+    on the review page. Only league admins can call it, it reuses the Vault
+    token through `private.dispatch_chesscom_sync`, and it allows one request
+    per minute. Requests are logged in `private.chesscom_sync_requests`.
 
 Check the scheduler and latest GitHub API responses in the Supabase SQL Editor:
 

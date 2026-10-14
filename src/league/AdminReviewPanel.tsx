@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 type GameResult = "white_win" | "draw" | "black_win";
 type AdminAction = "approved" | "rejected" | "corrected_result";
@@ -123,6 +123,19 @@ async function request(path: string, accessToken?: string, init: RequestInit = {
   return response.json();
 }
 
+async function latestReplayGeneration(accessToken: string): Promise<number | null> {
+  const rows = await request(
+    "/rest/v1/rating_replays?select=replay_generation&order=replay_generation.desc&limit=1",
+    accessToken,
+  );
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const value = (rows[0] as { replay_generation?: unknown }).replay_generation;
+  return typeof value === "number" ? value : null;
+}
+
+const SYNC_POLL_INTERVAL_MS = 10_000;
+const SYNC_POLL_ATTEMPTS = 18;
+
 export function AdminReviewPanel() {
   const [workflowState, setWorkflowState] = useState<WorkflowState>("checking");
   const [session, setSession] = useState<AuthSession | null>(null);
@@ -139,6 +152,10 @@ export function AdminReviewPanel() {
   const [undoReasons, setUndoReasons] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const syncWatchRef = useRef(0);
+
+  useEffect(() => () => { syncWatchRef.current += 1; }, []);
 
   const saveSession = useCallback((nextSession: AuthSession | null) => {
     setSession(nextSession);
@@ -329,6 +346,49 @@ export function AdminReviewPanel() {
     }
   }
 
+  async function requestSync() {
+    if (!session) return;
+    const watch = ++syncWatchRef.current;
+    setSyncBusy(true);
+    setError(null);
+    setNotice(null);
+    let before: number | null = null;
+    try {
+      const activeSession = await getFreshSession(session);
+      before = await latestReplayGeneration(activeSession.access_token).catch(() => null);
+      await request("/rest/v1/rpc/request_chesscom_sync", activeSession.access_token, {
+        method: "POST",
+        body: JSON.stringify({ p_full_backfill: false }),
+      });
+      setNotice("Sync requested. New Chess.com games usually land within a couple of minutes.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not request a Chess.com sync.");
+      setSyncBusy(false);
+      return;
+    }
+    setSyncBusy(false);
+
+    // Watch for the import to finish: each import writes a new rating replay.
+    for (let attempt = 0; attempt < SYNC_POLL_ATTEMPTS; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, SYNC_POLL_INTERVAL_MS));
+      if (syncWatchRef.current !== watch) return;
+      try {
+        const activeSession = await getFreshSession(session);
+        const current = await latestReplayGeneration(activeSession.access_token);
+        if (current !== null && current !== before) {
+          setNotice("Standings updated with the latest Chess.com games.");
+          await loadQueue(activeSession);
+          return;
+        }
+      } catch {
+        // Keep waiting; a transient failure here is not worth an error banner.
+      }
+    }
+    if (syncWatchRef.current === watch) {
+      setNotice("The sync was requested, but no new games have been imported yet. Check again in a few minutes.");
+    }
+  }
+
   async function signOut() {
     const currentSession = session;
     saveSession(null);
@@ -393,6 +453,15 @@ export function AdminReviewPanel() {
       </div>
       {error && <p role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
+      <section className="admin-sync" aria-labelledby="sync-heading">
+        <div>
+          <h2 id="sync-heading">Chess.com sync</h2>
+          <p>Games import automatically every five minutes. Use this when a finished game is slow to appear.</p>
+        </div>
+        <button type="button" className="secondary-button" disabled={syncBusy} onClick={() => void requestSync()}>
+          {syncBusy ? "Requesting…" : "Refresh from Chess.com"}
+        </button>
+      </section>
       {games.length === 0 ? (
         <p className="connection-message">No games are waiting for review.</p>
       ) : (

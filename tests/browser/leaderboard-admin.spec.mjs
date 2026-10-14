@@ -187,6 +187,33 @@ test("admin rejects signed-in users not provisioned as league admins", async ({ 
   expect(await page.evaluate(() => localStorage.getItem("school-chess-league-admin-session"))).toBeNull();
 });
 
+test("admin can request a Chess.com refresh from the review page", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("school-chess-league-admin-session", JSON.stringify({
+      access_token: "test-access-token",
+      refresh_token: "test-refresh-token",
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      user: { id: "admin-user-id" },
+    }));
+  });
+  await page.route(`${supabase}/rest/v1/rpc/is_league_admin`, (route) => route.fulfill({ json: true }));
+  await page.route(/\/rest\/v1\/players\?select=id,display_name$/, (route) => route.fulfill({ json: [] }));
+  await page.route(`${supabase}/rest/v1/admin_decisions?**`, (route) => route.fulfill({ json: [] }));
+  await page.route(`${supabase}/rest/v1/games?**`, (route) => route.fulfill({ json: [] }));
+  await page.route(`${supabase}/rest/v1/rating_replays?**`, (route) => route.fulfill({ json: [{ replay_generation: 4 }] }));
+  const syncRequests = [];
+  await page.route(`${supabase}/rest/v1/rpc/request_chesscom_sync`, async (route) => {
+    syncRequests.push({ body: route.request().postDataJSON(), auth: route.request().headers().authorization });
+    await route.fulfill({ json: { requested_at: "2026-10-14T09:00:00Z", full_backfill: false } });
+  });
+
+  await page.goto("/review");
+  await expect(page.getByRole("heading", { name: "Pending games" })).toBeVisible();
+  await page.getByRole("button", { name: "Refresh from Chess.com" }).click();
+  await expect(page.locator(".admin-panel [role='status']")).toContainText("Sync requested");
+  expect(syncRequests).toEqual([{ body: { p_full_backfill: false }, auth: "Bearer test-access-token" }]);
+});
+
 test("legacy admin URL redirects to the game review page", async ({ page }) => {
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/review$/);
