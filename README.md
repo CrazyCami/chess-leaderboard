@@ -186,8 +186,10 @@ times from 10 October 2026 00:00 Europe/London onward. Frequent runs scan the
 current month; a daily full archive backfill catches late-published games. The
 open leaderboard fetches updated standings once a minute. Supabase Cron
 dispatches the worker, but GitHub Actions and Chess.com can still delay game
-publication, so five minutes is a best-effort target, not a guarantee. Each
-run reports archive games seen, eligible candidates, exclusion reasons, and
+publication, so five minutes is a best-effort target, not a guarantee. Signed-in
+admins can also press "Refresh from Chess.com" on the review page, which calls
+the `request_chesscom_sync` RPC to dispatch the same workflow (at most once a
+minute). Each run reports archive games seen, eligible candidates, exclusion reasons, and
 database insert/pending/conflict counts. Chess.com ratings are never read or
 used.
 
